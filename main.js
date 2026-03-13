@@ -7,6 +7,26 @@ const FOLLOW_ZOOM = 18;
 const FIT_MAX_ZOOM = 17;
 const MAX_ZOOM = 19;
 const OSRM_BASE_URL = 'https://router.project-osrm.org';
+const OSRM_PROFILE = 'foot';
+const routingClient = new window.OsrmRoutingClient({
+  baseUrl: OSRM_BASE_URL,
+  profile: OSRM_PROFILE,
+});
+const MAP_ICONS = {
+  locate: `
+    <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
+      <path d="M12 3.5v3.2M20.5 12h-3.2M12 20.5v-3.2M3.5 12h3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="5.1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="12" cy="12" r="1.7" fill="currentColor"/>
+    </svg>
+  `,
+  follow: `
+    <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
+      <path d="M5 18 18.7 5.3M11.6 5H19v7.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 6.5h4.1M6 6.5v4.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  `,
+};
 const speciesTotal = new Set(TREES.map(tree => tree.name.trim()).filter(Boolean)).size;
 
 const state = {
@@ -41,12 +61,10 @@ const el = {
   collectionPanel: document.getElementById('collectionPanel'),
   routeDistance: document.getElementById('routeDistance'),
   routePanel: document.getElementById('routePanel'),
-  scannerCount: document.getElementById('scannerCount'),
-  scannerHint: document.getElementById('scannerHint'),
   nextTargetName: document.getElementById('nextTargetName'),
   nextTargetMeta: document.getElementById('nextTargetMeta'),
   remainingCount: document.getElementById('remainingCount'),
-  mapHud: document.getElementById('mapHud'),
+  panelNote: document.getElementById('panelNote'),
   floatingPanel: document.getElementById('floatingPanel'),
   panelToggleBtn: document.getElementById('panelToggleBtn'),
   panelToggleText: document.querySelector('.panel-toggle-text'),
@@ -212,15 +230,6 @@ function buildRouteFromMatrix(remaining, distances) {
   return ordered.length === remaining.length ? ordered : null;
 }
 
-async function fetchOsrmJson(path) {
-  const response = await fetch(`${OSRM_BASE_URL}${path}`);
-  if (!response.ok) throw new Error(`OSRM request failed: ${response.status}`);
-
-  const data = await response.json();
-  if (data.code !== 'Ok') throw new Error(`OSRM error: ${data.code}`);
-  return data;
-}
-
 function bearingBetween(a, b) {
   const toRad = deg => deg * Math.PI / 180;
   const toDeg = rad => (rad * 180 / Math.PI + 360) % 360;
@@ -248,15 +257,64 @@ function syncPanelState() {
 
   el.floatingPanel.dataset.collapsed = state.panelCollapsed ? 'true' : 'false';
   el.panelToggleBtn.setAttribute('aria-expanded', state.panelCollapsed ? 'false' : 'true');
-  el.panelToggleText.textContent = state.panelCollapsed ? 'Expand' : 'Collapse';
+  const label = state.panelCollapsed ? 'Open panel' : 'Collapse panel';
+  el.panelToggleBtn.setAttribute('aria-label', label);
+  el.panelToggleBtn.setAttribute('title', label);
+  el.panelToggleText.textContent = label;
   localStorage.setItem(PANEL_COLLAPSED_KEY, String(state.panelCollapsed));
 }
 
-function collapseTransientUi() {
+function collapseTransientUi(evt = null) {
+  const rawTarget = evt?.originalEvent?.target;
+  if (rawTarget instanceof Element && rawTarget.closest('.leaflet-interactive, .leaflet-popup, .leaflet-control-container')) {
+    return;
+  }
+
   state.map?.closePopup();
   state.panelCollapsed = true;
   syncPanelState();
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+}
+
+function getFocusTargetPoint() {
+  const size = state.map.getSize();
+  const defaultTarget = L.point(size.x / 2, size.y / 2);
+
+  if (!isMobileLayout() || !el.floatingPanel) return defaultTarget;
+
+  const mapRect = state.map.getContainer().getBoundingClientRect();
+  const panelRect = el.floatingPanel.getBoundingClientRect();
+  const occupiedTop = Math.max(0, panelRect.top - mapRect.top);
+
+  if (occupiedTop <= 0) return defaultTarget;
+
+  return L.point(size.x / 2, Math.max(48, occupiedTop / 2));
+}
+
+function focusTreeInView(tree, marker) {
+  if (!tree || !marker || !state.map) return;
+
+  const latLng = L.latLng(tree.lat, tree.lng);
+  const currentZoom = state.map.getZoom();
+  const targetZoom = Math.max(currentZoom, DEFAULT_ZOOM);
+
+  state.map.setView(latLng, targetZoom, { animate: true });
+  marker.openPopup();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const zoom = state.map.getZoom();
+      const targetPoint = getFocusTargetPoint();
+      const size = state.map.getSize();
+      const currentCenterProjected = state.map.project(state.map.getCenter(), zoom);
+      const latLngProjected = state.map.project(latLng, zoom);
+      const currentContainerPoint = latLngProjected
+        .subtract(currentCenterProjected)
+        .add(L.point(size.x / 2, size.y / 2));
+      const adjustedCenterProjected = currentCenterProjected.add(currentContainerPoint.subtract(targetPoint));
+      state.map.panTo(state.map.unproject(adjustedCenterProjected, zoom), { animate: true });
+    });
+  });
 }
 
 function updateNextTargetSummary() {
@@ -301,8 +359,9 @@ async function updateRouteFromOsm() {
   const userPoint = { lat: state.userLatLng.lat, lng: state.userLatLng.lng };
 
   try {
-    const tableCoords = [userPoint, ...remaining].map(point => `${point.lng},${point.lat}`).join(';');
-    const tableData = await fetchOsrmJson(`/table/v1/foot/${tableCoords}?annotations=distance`);
+    const tableData = {
+      distances: await routingClient.getDistanceMatrix([userPoint, ...remaining]),
+    };
     if (token !== state.routeRequestToken) return;
 
     const ordered = buildRouteFromMatrix(remaining, tableData.distances) || state.route;
@@ -311,11 +370,9 @@ async function updateRouteFromOsm() {
     state.route = ordered;
     state.currentTargetId = state.route[0]?.id || null;
 
-    const routeCoords = [userPoint, ...state.route].map(point => `${point.lng},${point.lat}`).join(';');
-    const routeData = await fetchOsrmJson(`/route/v1/foot/${routeCoords}?overview=full&geometries=geojson&steps=false`);
+    const bestRoute = await routingClient.getWalkingRoute([userPoint, ...state.route]);
     if (token !== state.routeRequestToken) return;
-
-    const bestRoute = routeData.routes[0];
+    if (!bestRoute) throw new Error('OSRM route response did not include a route.');
     const distanceToTree = new Map();
     let running = 0;
 
@@ -356,7 +413,7 @@ async function updateRouteFromOsm() {
     updatePolylines();
     renderRoutePanel();
     updateNextTargetSummary();
-    el.mapHud.textContent = 'Using fallback route lines. OSM walking directions were unavailable.';
+    if (el.panelNote) el.panelNote.textContent = 'Using fallback route lines. Walking directions were unavailable.';
   }
 }
 
@@ -484,8 +541,7 @@ function collectTree(tree) {
 
 function updateScanner() {
   if (!state.userLatLng) {
-    el.scannerCount.textContent = 'Preview mode';
-    el.scannerHint.textContent = 'Tap the location button on the map to begin.';
+    if (el.panelNote) el.panelNote.textContent = 'Tap the location button on the map to begin.';
     updateNextTargetSummary();
     return;
   }
@@ -501,10 +557,11 @@ function updateScanner() {
   });
 
   const nearest = nearby[0];
-  el.scannerCount.textContent = nearby.length ? `${nearby.length} in range` : 'Scanning';
-  el.scannerHint.textContent = nearest
-    ? `${nearest.tree.name} is ${formatMeters(nearest.dist)} away.`
-    : `No uncollected trees inside ${SCAN_RADIUS_METERS} m.`;
+  if (el.panelNote) {
+    el.panelNote.textContent = nearest
+      ? `${nearest.tree.name} is ${formatMeters(nearest.dist)} away.`
+      : `No uncollected trees inside ${SCAN_RADIUS_METERS} m.`;
+  }
 
   const next = state.route[0] || null;
   state.currentTargetId = next?.id || null;
@@ -539,7 +596,7 @@ function moveUser(lat, lng) {
 
 function startLocation() {
   if (!navigator.geolocation) {
-    el.mapHud.textContent = 'Geolocation is not available in this browser.';
+    if (el.panelNote) el.panelNote.textContent = 'Geolocation is not available in this browser.';
     return;
   }
 
@@ -547,10 +604,10 @@ function startLocation() {
   state.watchId = navigator.geolocation.watchPosition(
     pos => {
       moveUser(pos.coords.latitude, pos.coords.longitude);
-      el.mapHud.textContent = 'Following your position. Trees collect automatically when you move close enough.';
+      if (el.panelNote) el.panelNote.textContent = 'Following your position. Trees collect automatically when you move close enough.';
     },
     err => {
-      el.mapHud.textContent = 'Location access was blocked, so the trail stays in preview mode.';
+      if (el.panelNote) el.panelNote.textContent = 'Location access was blocked, so the trail stays in preview mode.';
       console.error(err);
     },
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 12000 }
@@ -582,13 +639,13 @@ function createMapButtonControl({ position = 'topleft', title, label, onClick, c
 function initMapControls() {
   state.controls.locate = createMapButtonControl({
     title: 'Use my location',
-    label: 'LOC',
+    label: MAP_ICONS.locate,
     onClick: startLocation,
   });
 
   state.controls.follow = createMapButtonControl({
     title: 'Toggle follow mode',
-    label: 'FOL',
+    label: MAP_ICONS.follow,
     onClick: () => {
       state.followUser = !state.followUser;
       document.querySelectorAll('.map-control-btn').forEach(btn => {
@@ -597,7 +654,7 @@ function initMapControls() {
       if (state.followUser && state.userLatLng) {
         state.map.setView(state.userLatLng, FOLLOW_ZOOM, { animate: true });
       }
-      el.mapHud.textContent = state.followUser ? 'Follow mode is on.' : 'Follow mode is off.';
+      if (el.panelNote) el.panelNote.textContent = state.followUser ? 'Follow mode is on.' : 'Follow mode is off.';
     },
     className: 'active',
   });
@@ -614,7 +671,7 @@ function initPanelControls() {
 function initMap() {
   const center = [TREES[0].lat, TREES[0].lng];
   state.map = L.map('map', {
-    zoomControl: true,
+    zoomControl: false,
     minZoom: 3,
     maxZoom: MAX_ZOOM,
     zoomSnap: 1,
@@ -643,11 +700,13 @@ function initMap() {
         }
       }, 20);
     });
-    marker.on('click', () => {
-      state.panelCollapsed = isMobileLayout() ? false : state.panelCollapsed;
+    marker.on('click', evt => {
+      if (evt?.originalEvent) L.DomEvent.stop(evt.originalEvent);
+      state.panelCollapsed = false;
       syncPanelState();
       state.currentTargetId = tree.id;
       updateMarkers();
+      focusTreeInView(tree, marker);
       renderRoutePanel();
     });
     state.treeLayers.set(tree.id, marker);
@@ -659,7 +718,7 @@ function initMap() {
   fitRoute();
   initMapControls();
   initPanelControls();
-  state.map.on('click', collapseTransientUi);
+  state.map.on('click', evt => collapseTransientUi(evt));
 
   el.routePanel.addEventListener('click', evt => {
     const stop = evt.target.closest('.route-stop');
@@ -672,8 +731,8 @@ function initMap() {
     syncPanelState();
     state.currentTargetId = tree.id;
     updateMarkers();
-    state.map.setView([tree.lat, tree.lng], DEFAULT_ZOOM, { animate: true });
-    state.treeLayers.get(tree.id)?.openPopup();
+    const marker = state.treeLayers.get(tree.id);
+    if (marker) focusTreeInView(tree, marker);
     renderRoutePanel();
   });
 }
@@ -685,7 +744,7 @@ el.resetBtn.addEventListener('click', () => {
   renderCollection();
   refreshRouteFromLocation();
   updateScanner();
-  el.mapHud.textContent = 'Collection reset. Route rebuilt for all trees.';
+  if (el.panelNote) el.panelNote.textContent = 'Collection reset. Route rebuilt for all trees.';
 });
 
 initMap();

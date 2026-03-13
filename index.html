@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tree Trail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <link rel="stylesheet" href="styles.css" />
@@ -12,69 +15,115 @@
   <div class="app-shell">
     <main class="map-wrap">
       <div id="map"></div>
+
       <section class="floating-panel glass" id="floatingPanel" aria-label="Tree trail controls and status" data-collapsed="false">
         <div class="panel-handle-row">
-          <button id="panelToggleBtn" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
-            <span class="panel-toggle-text">Hide panel</span>
+          <button id="panelToggleBtn" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent" aria-label="Collapse panel" title="Collapse panel">
+            <span class="panel-grip" aria-hidden="true"></span>
+            <span class="panel-toggle-text sr-only">Collapse panel</span>
           </button>
         </div>
-        <div class="panel-content" id="panelContent">
-          <div class="hero-row">
-            <div>
-              <p class="eyebrow">TREE TRAIL</p>
-              <h1>Tree Trail</h1>
-              <p class="lede">Photo-rich tree walk with live collection, smart routing, and automatic follow mode.</p>
-            </div>
-            <div class="metric-chip" id="routeDistance">Route ready</div>
-          </div>
 
-          <section class="status-stack">
-            <article class="status-card">
-              <span class="status-label">Scanner</span>
-              <strong id="scannerCount">Preview mode</strong>
-              <span id="scannerHint" class="status-note">Tap the location button on the map to begin.</span>
-            </article>
-            <article class="status-card next-target-card">
-              <span class="status-label">Next tree</span>
+        <div class="panel-content" id="panelContent">
+          <header class="hero-card glass-inner">
+            <div class="hero-topline">
+              <div class="brand-lockup">
+                <span class="brand-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation">
+                    <path d="M12 2c-3.6 2.4-5.5 5.7-5.5 9.1 0 5 3.5 8.9 5.5 10.9 2-2 5.5-5.9 5.5-10.9C17.5 7.7 15.6 4.4 12 2Z" fill="currentColor"/>
+                    <path d="M12 7.1c-1.5 0-2.8 1.2-2.8 2.8S10.5 12.7 12 12.7s2.8-1.2 2.8-2.8S13.5 7.1 12 7.1Z" fill="#081318"/>
+                  </svg>
+                </span>
+                <div>
+                  <p class="eyebrow">LIVING MAP</p>
+                  <h1>Tree Trail</h1>
+                </div>
+              </div>
+              <div class="metric-chip" id="routeDistance">Route ready</div>
+            </div>
+            <p class="lede">Local photos, live progress, and walking-route guidance.</p>
+            <p class="panel-note" id="panelNote">Tap a tree for details. Tap the map to close overlays.</p>
+          </header>
+
+          <section class="status-grid">
+            <article class="status-card glass-inner next-target-card">
+              <div class="card-head">
+                <span class="card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation">
+                    <path d="M4 12c4.7 0 7.7-3 12.4-7v5.1H20V19h-8.3v-3.4h4.7v-4.1C11.7 14.5 8.7 16 4 16v-4Z" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="status-label">Next tree</span>
+              </div>
               <strong id="nextTargetName">Awaiting position</strong>
               <span id="nextTargetMeta" class="status-note">Distance and direction appear here while walking.</span>
             </article>
           </section>
 
-          <section class="collection glass-inner">
+          <section class="panel-card collection glass-inner">
             <div class="section-head">
-              <div>
-                <h2>Collection</h2>
-                <p>Unique species found</p>
+              <div class="section-title">
+                <span class="section-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation">
+                    <path d="M12 3.3 14 8l5 .7-3.6 3.5.9 5-4.3-2.3-4.3 2.3.9-5L5 8.7 10 8l2-4.7Z" fill="currentColor"/>
+                  </svg>
+                </span>
+                <div>
+                  <h2>Collection</h2>
+                </div>
               </div>
-              <button id="resetBtn" class="ghost">Reset</button>
+              <button id="resetBtn" class="ghost" type="button">
+                <span aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation">
+                    <path d="M5 6.5h11.5A4.5 4.5 0 1 1 12 19.5a4.4 4.4 0 0 1-4.4-3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M5 2.8v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span>Reset</span>
+              </button>
             </div>
-            <div class="progress-copy"><span><strong id="speciesCount">0</strong>/<strong id="speciesTotal">0</strong></span><span id="collectionPercent">0%</span></div>
+            <div class="progress-copy">
+              <span><strong id="speciesCount">0</strong>/<strong id="speciesTotal">0</strong></span>
+              <span id="collectionPercent">0%</span>
+            </div>
             <div class="progress-track"><div id="progressBar"></div></div>
             <div id="collectionPanel" class="species-strip"></div>
           </section>
 
-          <section class="trail-panel glass-inner">
+          <section class="panel-card trail-panel glass-inner">
             <div class="section-head compact">
-              <div>
-                <h2>Route</h2>
-                <p>Optimised from your current position</p>
+              <div class="section-title">
+                <span class="section-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation">
+                    <path d="M5 18c3.2-5.7 6.2-8.9 14-12M10.4 17.4c1.7-3.8 4-7.3 8.2-11.2M4.2 18h7.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <div>
+                  <h2>Route</h2>
+                </div>
               </div>
               <div class="head-actions">
                 <span class="tiny-pill" id="remainingCount">0 left</span>
-                <button id="fitBtn" class="ghost">Fit route</button>
+                <button id="fitBtn" class="ghost" type="button">
+                  <span aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                      <path d="M8 4H4v4M16 4h4v4M20 16v4h-4M8 20H4v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                  <span>Fit route</span>
+                </button>
               </div>
             </div>
             <div id="routePanel" class="route-list"></div>
           </section>
         </div>
       </section>
-      <div class="map-hud glass" id="mapHud">Tap a tree for its photo and details. Collected trees fade, and the route updates as you move.</div>
     </main>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="trees.js"></script>
+  <script src="routing-client.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
