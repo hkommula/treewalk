@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tree Trail</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <main class="map-wrap">
+      <div id="map"></div>
+      <section class="floating-panel glass" id="floatingPanel" aria-label="Tree trail controls and status" data-collapsed="false">
+        <div class="panel-handle-row">
+          <button id="panelToggleBtn" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
+            <span class="panel-toggle-text">Hide panel</span>
+          </button>
+        </div>
+        <div class="panel-content" id="panelContent">
+          <div class="hero-row">
+            <div>
+              <p class="eyebrow">TREE TRAIL</p>
+              <h1>Tree Trail</h1>
+              <p class="lede">Photo-rich tree walk with live collection, smart routing, and automatic follow mode.</p>
+            </div>
+            <div class="metric-chip" id="routeDistance">Route ready</div>
+          </div>
+
+          <section class="status-stack">
+            <article class="status-card">
+              <span class="status-label">Scanner</span>
+              <strong id="scannerCount">Preview mode</strong>
+              <span id="scannerHint" class="status-note">Tap the location button on the map to begin.</span>
+            </article>
+            <article class="status-card next-target-card">
+              <span class="status-label">Next tree</span>
+              <strong id="nextTargetName">Awaiting position</strong>
+              <span id="nextTargetMeta" class="status-note">Distance and direction appear here while walking.</span>
+            </article>
+          </section>
+
+          <section class="collection glass-inner">
+            <div class="section-head">
+              <div>
+                <h2>Collection</h2>
+                <p>Unique species found</p>
+              </div>
+              <button id="resetBtn" class="ghost">Reset</button>
+            </div>
+            <div class="progress-copy"><span><strong id="speciesCount">0</strong>/<strong id="speciesTotal">0</strong></span><span id="collectionPercent">0%</span></div>
+            <div class="progress-track"><div id="progressBar"></div></div>
+            <div id="collectionPanel" class="species-strip"></div>
+          </section>
+
+          <section class="trail-panel glass-inner">
+            <div class="section-head compact">
+              <div>
+                <h2>Route</h2>
+                <p>Optimised from your current position</p>
+              </div>
+              <div class="head-actions">
+                <span class="tiny-pill" id="remainingCount">0 left</span>
+                <button id="fitBtn" class="ghost">Fit route</button>
+              </div>
+            </div>
+            <div id="routePanel" class="route-list"></div>
+          </section>
+        </div>
+      </section>
+      <div class="map-hud glass" id="mapHud">Tap a tree for its photo and details. Collected trees fade, and the route updates as you move.</div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="trees.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
