@@ -18,97 +18,114 @@
   </head>
   <body>
     <div class="app">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">University of Wollongong</p>
-          <h1>Tree Walk</h1>
-          <p class="intro">
-            Lightweight campus tree tour using OSM walkway data and live GPS.
-          </p>
-        </div>
-        <span class="status-chip" id="status-chip">Loading</span>
-      </header>
-
       <main class="layout">
-        <section class="panel map-panel" aria-label="Map">
-          <div class="map-toolbar" aria-label="Map tools">
-            <button id="home-btn" type="button" class="map-tool" aria-label="Home view" title="Home view">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>
+        <section class="map-panel" aria-label="Map">
+          <div class="map-control-group" id="map-control-group" aria-label="Map tools">
+            <button
+              id="map-controls-toggle"
+              type="button"
+              class="map-tool map-tool-toggle"
+              aria-label="Toggle map tools"
+              aria-expanded="false"
+              title="Toggle map tools"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
             </button>
-            <button id="locate-btn" type="button" class="map-tool" aria-label="Locate me" title="Locate me">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2h2v3.1a7 7 0 0 1 5.9 5.9H22v2h-3.1a7 7 0 0 1-5.9 5.9V22h-2v-3.1a7 7 0 0 1-5.9-5.9H2v-2h3.1A7 7 0 0 1 11 5.1zm1 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4"/></svg>
-            </button>
-            <button id="recenter-btn" type="button" class="map-tool" aria-label="Recenter" title="Recenter">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zM3 14h2v5h5v2H3zm16 0h2v7h-7v-2h5z"/></svg>
-            </button>
+            <div class="map-control-stack" id="map-control-stack">
+              <button id="home-btn" type="button" class="map-tool" aria-label="Home view" title="Home view">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>
+              </button>
+              <button id="locate-btn" type="button" class="map-tool" aria-label="Locate me" title="Locate me">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2h2v3.1a7 7 0 0 1 5.9 5.9H22v2h-3.1a7 7 0 0 1-5.9 5.9V22h-2v-3.1a7 7 0 0 1-5.9-5.9H2v-2h3.1A7 7 0 0 1 11 5.1zm1 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4"/></svg>
+              </button>
+              <button id="reset-visited-btn" type="button" class="map-tool" aria-label="Reset visited trees" title="Reset visited trees">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7"/></svg>
+              </button>
+              <button id="zoom-in-btn" type="button" class="map-tool" aria-label="Zoom in" title="Zoom in">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+              </button>
+              <button id="zoom-out-btn" type="button" class="map-tool" aria-label="Zoom out" title="Zoom out">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14v2H5z"/></svg>
+              </button>
+            </div>
           </div>
+
           <div id="map" class="map" role="application" aria-label="Tree walk map"></div>
+
+          <aside class="sidebar">
+            <details class="panel tour-panel collapsible-panel" id="tour-panel" open>
+              <summary class="collapsible-summary">
+                <div>
+                  <h2>Tour</h2>
+                </div>
+                <div class="tour-head-actions">
+                  <span class="small-chip status-chip" id="status-chip">Loading</span>
+                  <button id="reset-visited-inline-btn" type="button" class="small-action" aria-label="Reset visited trees">Reset</button>
+                </div>
+              </summary>
+              <div class="collapsible-body">
+                <div class="tour-summary-group">
+                  <div class="next-guide">
+                    <div class="next-guide-primary">
+                      <span class="guide-label">Next tree</span>
+                      <strong id="next-tree-name">Waiting for route</strong>
+                    </div>
+                    <div class="next-guide-meta">
+                      <article>
+                        <span>Distance</span>
+                        <strong id="next-tree-distance">-</strong>
+                      </article>
+                    </div>
+                  </div>
+
+                  <dl class="metric-grid compact-metrics">
+                    <div>
+                      <dt>Trees</dt>
+                      <dd id="tree-count">0</dd>
+                    </div>
+                    <div>
+                      <dt>Done</dt>
+                      <dd id="arrived-count">0</dd>
+                    </div>
+                    <div>
+                      <dt>Route</dt>
+                      <dd id="route-distance">-</dd>
+                    </div>
+                    <div>
+                      <dt>Time</dt>
+                      <dd id="route-time">-</dd>
+                    </div>
+                  </dl>
+
+                  <p class="muted" id="gps-readout">No live GPS fix yet.</p>
+                  <p class="error" id="error-text" hidden></p>
+                </div>
+
+                <div class="panel-head route-head">
+                  <h3>Route Stops</h3>
+                  <span class="small-chip" id="route-count">0 stops</span>
+                </div>
+                <div class="route-list-wrap">
+                  <ol id="route-list" class="route-list">
+                    <li class="empty-state">Use Locate Me or tap the map to generate the tour.</li>
+                  </ol>
+                </div>
+              </div>
+            </details>
+
+            <details class="panel tree-panel collapsible-panel" id="tree-panel" hidden>
+              <summary class="collapsible-summary">
+                <h2>Selected Tree</h2>
+                <span class="small-chip">Details</span>
+              </summary>
+              <div class="collapsible-body">
+                <div id="tree-detail" class="tree-detail">
+                  <p class="empty-state">Select a tree marker or route stop to view details.</p>
+                </div>
+              </div>
+            </details>
+          </aside>
         </section>
-
-        <aside class="sidebar">
-          <details class="panel controls collapsible-panel" open>
-            <summary class="collapsible-summary">
-              <h2>Start</h2>
-              <span class="small-chip">Toggle</span>
-            </summary>
-            <div class="collapsible-body">
-              <p class="muted" id="location-copy">
-                Allow location to start from your position. If GPS is denied, use the current map center.
-              </p>
-              <div class="start-hints">
-                <span class="small-chip">Tap map to place a manual start</span>
-                <span class="small-chip">Route updates automatically after GPS or manual start changes</span>
-                <span class="small-chip">Use the visited toggle to mark trees you have completed</span>
-              </div>
-            </div> 
-          </details>
-
-          <section class="panel tree-panel" id="tree-panel">
-            <h2>Selected Tree</h2>
-            <div id="tree-detail" class="tree-detail">
-              <p class="empty-state">Select a tree marker to view details.</p>
-            </div>
-          </section>
-
-          <section class="panel stats">
-            <div class="panel-head compact-head">
-              <h2>Overview</h2>
-              <span class="small-chip" id="start-mode">Waiting</span>
-            </div>
-            <dl class="metric-grid compact-metrics">
-              <div>
-                <dt>Trees</dt>
-                <dd id="tree-count">0</dd>
-              </div>
-              <div>
-                <dt>Seen</dt>
-                <dd id="arrived-count">0</dd>
-              </div>
-              <div>
-                <dt>Distance</dt>
-                <dd id="route-distance">-</dd>
-              </div>
-              <div>
-                <dt>Time</dt>
-                <dd id="route-time">-</dd>
-              </div>
-            </dl>
-            <p class="muted" id="gps-readout">No live GPS fix yet.</p>
-            <p class="error" id="error-text" hidden></p>
-          </section>
-
-          <section class="panel route-panel">
-            <div class="panel-head">
-              <h2>Route Stops</h2>
-              <span class="small-chip" id="route-count">0 stops</span>
-            </div>
-            <div class="route-list-wrap">
-              <ol id="route-list" class="route-list">
-                <li class="empty-state">Build the tour to see visit order.</li>
-              </ol>
-            </div>
-          </section>
-        </aside>
       </main>
     </div>
 

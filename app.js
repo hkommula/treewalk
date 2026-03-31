@@ -8,6 +8,7 @@ const GEOLOCATION_OPTIONS = {
   maximumAge: 12000,
 };
 const ARRIVAL_THRESHOLD_METERS = 18;
+const VIBRATION_MAX_DISTANCE_METERS = 25;
 
 const state = {
   map: null,
@@ -18,35 +19,46 @@ const state = {
   arrivedTreeIds: new Set(),
   visitedTreeIds: new Set(),
   currentPosition: null,
+  currentHeading: null,
   manualStart: null,
   startSource: null,
   pendingAutoBuild: false,
+  pendingLocateCenter: false,
   watchId: null,
   treeMarkers: new Map(),
   selectedLabelMarker: null,
   userMarker: null,
+  userAccuracyCircle: null,
   startMarker: null,
   routeLayer: null,
   walkwayLayer: null,
+  lastVibrationAt: 0,
 };
 
 const elements = {
   statusChip: document.querySelector("#status-chip"),
-  locationCopy: document.querySelector("#location-copy"),
-  startMode: document.querySelector("#start-mode"),
   treeCount: document.querySelector("#tree-count"),
   routeDistance: document.querySelector("#route-distance"),
   routeTime: document.querySelector("#route-time"),
   routeCount: document.querySelector("#route-count"),
+  nextTreeName: document.querySelector("#next-tree-name"),
+  nextTreeDistance: document.querySelector("#next-tree-distance"),
   gpsReadout: document.querySelector("#gps-readout"),
   errorText: document.querySelector("#error-text"),
   routeList: document.querySelector("#route-list"),
   treeDetail: document.querySelector("#tree-detail"),
+  sidebar: document.querySelector(".sidebar"),
+  tourPanel: document.querySelector("#tour-panel"),
   treePanel: document.querySelector("#tree-panel"),
   arrivedCount: document.querySelector("#arrived-count"),
+  mapControlGroup: document.querySelector("#map-control-group"),
+  mapControlsToggle: document.querySelector("#map-controls-toggle"),
   homeButton: document.querySelector("#home-btn"),
   locateButton: document.querySelector("#locate-btn"),
-  recenterButton: document.querySelector("#recenter-btn"),
+  resetVisitedButton: document.querySelector("#reset-visited-btn"),
+  resetVisitedInlineButton: document.querySelector("#reset-visited-inline-btn"),
+  zoomInButton: document.querySelector("#zoom-in-btn"),
+  zoomOutButton: document.querySelector("#zoom-out-btn"),
 };
 
 init().catch((error) => {
@@ -78,50 +90,53 @@ async function init() {
   renderTrees();
   renderTreeCount();
   setStatus("Ready");
-  elements.locationCopy.textContent =
-    "Allow location to start from your GPS. If you deny access, use the current map center as the route start.";
   setButtonsDisabled(false);
+  showTourPanel();
   startLocationWatch();
 }
 
 function bindUi() {
+  elements.mapControlsToggle.addEventListener("click", () => {
+    const isOpen = elements.mapControlGroup.classList.toggle("is-open");
+    elements.mapControlsToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
   elements.locateButton.addEventListener("click", () => {
     state.startSource = "gps";
     state.pendingAutoBuild = true;
+    state.pendingLocateCenter = true;
     renderStartMarker();
 
     if (state.currentPosition) {
-      elements.startMode.textContent = "Live GPS";
       setStatus("GPS Live");
+      focusMapOnPoint([state.currentPosition.lat, state.currentPosition.lng], { zoom: 18, duration: 0.8 });
       buildAndRenderTour();
     } else {
-      elements.startMode.textContent = "GPS pending";
       setStatus("Locating");
     }
 
     startLocationWatch(true);
   });
-  elements.recenterButton.addEventListener("click", () => {
-    if (state.currentPosition) {
-      state.map.flyTo([state.currentPosition.lat, state.currentPosition.lng], 18, { duration: 0.8 });
-      return;
-    }
-
-    if (state.manualStart) {
-      state.map.flyTo([state.manualStart.lat, state.manualStart.lng], 18, { duration: 0.8 });
-    }
-  });
 
   elements.homeButton.addEventListener("click", () => {
     if (state.tour?.coordinates?.length) {
       const bounds = L.latLngBounds(state.tour.coordinates.map(([lat, lng]) => [lat, lng]));
-      state.map.fitBounds(bounds.pad(0.1), { animate: true, duration: 1.5 });
+      fitMapToBounds(bounds.pad(0.1), { duration: 1.5 });
       return;
     }
 
     const bounds = L.latLngBounds(state.trees.map((tree) => [tree.latitude, tree.longitude]));
-    state.map.fitBounds(bounds.pad(0.22), { animate: true, duration: 0.8 });
+    fitMapToBounds(bounds.pad(0.22), { duration: 0.8 });
   });
+
+  elements.resetVisitedButton.addEventListener("click", resetVisitedTrees);
+  elements.resetVisitedInlineButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    resetVisitedTrees();
+  });
+  elements.zoomInButton.addEventListener("click", () => state.map?.zoomIn());
+  elements.zoomOutButton.addEventListener("click", () => state.map?.zoomOut());
 }
 
 function createMap(center) {
@@ -129,8 +144,6 @@ function createMap(center) {
     zoomControl: false,
     preferCanvas: true,
   }).setView([center.lat, center.lng], DEFAULT_ZOOM);
-
-  L.control.zoom({ position: "bottomright" }).addTo(state.map);
 
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 20,
@@ -174,7 +187,8 @@ function renderTrees() {
 
 function startLocationWatch(triggeredByUser = false) {
   if (!("geolocation" in navigator)) {
-    elements.locationCopy.textContent = "This browser does not support geolocation. Use the map center instead.";
+    setStatus("Manual Start");
+    showError("This browser does not support geolocation. Tap the map to choose a manual start.");
     return;
   }
 
@@ -185,7 +199,7 @@ function startLocationWatch(triggeredByUser = false) {
   }
 
   if (triggeredByUser) {
-    elements.locationCopy.textContent = "Requesting your location permission now.";
+    setStatus("Locating");
   }
 
   state.watchId = navigator.geolocation.watchPosition(
@@ -196,11 +210,13 @@ function startLocationWatch(triggeredByUser = false) {
 }
 
 function handleLocationSuccess(position) {
+  const previousPosition = state.currentPosition;
   state.currentPosition = {
     lat: position.coords.latitude,
     lng: position.coords.longitude,
     accuracy: position.coords.accuracy,
   };
+  state.currentHeading = getPreferredHeading(position.coords.heading, previousPosition, state.currentPosition, state.currentHeading);
 
   if (!state.startSource) {
     state.startSource = "gps";
@@ -209,20 +225,28 @@ function handleLocationSuccess(position) {
   renderUserMarker();
   renderStartMarker();
   updateArrivals();
-  setStatus(state.startSource === "manual" ? "Manual Ready" : "GPS Live");
-  elements.startMode.textContent = state.startSource === "manual" ? "Manual" : "Live GPS";
+  updateNextTreeGuidance();
+  setStatus(state.startSource === "manual" ? "Manual Start" : "GPS Live");
   elements.gpsReadout.textContent =
     `${state.currentPosition.lat.toFixed(5)}, ${state.currentPosition.lng.toFixed(5)} ` +
     `| +/-${Math.round(state.currentPosition.accuracy)} m`;
+
+  if (state.pendingLocateCenter) {
+    state.pendingLocateCenter = false;
+    focusMapOnPoint([state.currentPosition.lat, state.currentPosition.lng], { zoom: 18, duration: 0.8 });
+  }
 
   if (state.startSource === "gps" && (state.pendingAutoBuild || !state.tour)) {
     state.pendingAutoBuild = false;
     buildAndRenderTour();
   }
+
+  maybeVibrateForNextTree();
 }
 
 function handleLocationError(error) {
   stopLocationWatch();
+  state.pendingLocateCenter = false;
 
   if (state.manualStart) {
     state.startSource = "manual";
@@ -231,17 +255,14 @@ function handleLocationError(error) {
   }
 
   if (error.code === error.PERMISSION_DENIED) {
-    elements.locationCopy.textContent =
-      "Location denied. Click the map or use the current center to choose a manual start point.";
-    elements.startMode.textContent = state.manualStart ? "Manual" : "Manual needed";
     showError("Location access was denied. Manual start remains available.");
   } else if (error.code === error.TIMEOUT) {
-    showError("Location timed out. You can retry or use map center.");
+    showError("Location timed out. You can retry or tap the map for a manual start.");
   } else {
-    showError("Could not read your location. You can still build from map center.");
+    showError("Could not read your location. You can still build from a manual map start.");
   }
 
-  setStatus("Manual Ready");
+  setStatus("Manual Start");
   elements.gpsReadout.textContent = "No live GPS fix yet.";
 }
 
@@ -250,9 +271,8 @@ function setManualStart(position) {
   state.startSource = "manual";
   state.pendingAutoBuild = false;
   renderStartMarker();
-  elements.startMode.textContent = "Manual";
   elements.gpsReadout.textContent = `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)} | map start`;
-  setStatus("Manual Ready");
+  setStatus("Manual Start");
   clearError();
   buildAndRenderTour();
 }
@@ -262,20 +282,31 @@ function renderUserMarker() {
     return;
   }
 
-  if (!state.userMarker) {
-    const icon = L.divIcon({
-      className: "",
-      html: '<span class="user-marker"></span>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    });
+  const icon = createUserIcon();
+  const latLng = [state.currentPosition.lat, state.currentPosition.lng];
 
-    state.userMarker = L.marker([state.currentPosition.lat, state.currentPosition.lng], {
+  if (!state.userMarker) {
+    state.userMarker = L.marker(latLng, {
       icon,
       zIndexOffset: 1000,
     }).addTo(state.map);
   } else {
-    state.userMarker.setLatLng([state.currentPosition.lat, state.currentPosition.lng]);
+    state.userMarker.setLatLng(latLng);
+    state.userMarker.setIcon(icon);
+  }
+
+  if (!state.userAccuracyCircle) {
+    state.userAccuracyCircle = L.circle(latLng, {
+      radius: state.currentPosition.accuracy,
+      color: "rgba(46, 127, 255, 0.22)",
+      weight: 1,
+      fillColor: "rgba(46, 127, 255, 0.16)",
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(state.map);
+  } else {
+    state.userAccuracyCircle.setLatLng(latLng);
+    state.userAccuracyCircle.setRadius(state.currentPosition.accuracy);
   }
 }
 
@@ -310,7 +341,7 @@ function buildAndRenderTour() {
   const start = getActiveStart();
 
   if (!start) {
-    showError("Choose a start point from GPS or use the map center first.");
+    showError("Choose a start point from GPS or tap the map for a manual start.");
     return;
   }
 
@@ -322,20 +353,21 @@ function buildAndRenderTour() {
     });
 
     state.tour = tour;
+    state.selectedTreeId = null;
     state.arrivedTreeIds = new Set();
     state.visitedTreeIds = new Set();
+    updateSelectedTreeLabel(null);
     renderRoute();
     renderTourSummary();
     updateArrivedCount();
     updateTreeMarkerStates();
     updateArrivals();
-
-    if (tour.orderedStops[0]) {
-      selectTree(tour.orderedStops[0].id, true);
-    }
+    updateNextTreeGuidance();
+    renderSelectedTreeEmptyState();
+    showTourPanel();
 
     const bounds = L.latLngBounds(tour.coordinates.map(([lat, lng]) => [lat, lng]));
-    state.map.fitBounds(bounds.pad(0.08), { animate: true, duration: 0.8 });
+    fitMapToBounds(bounds.pad(0.08), { duration: 0.8 });
     setStatus("Route Ready");
   } catch (error) {
     console.error(error);
@@ -383,21 +415,14 @@ function renderTourSummary() {
       selectTree(tree.id, true);
     });
 
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = `visit-toggle ${state.visitedTreeIds.has(tree.id) ? "is-on" : ""}`;
-    toggle.textContent = state.visitedTreeIds.has(tree.id) ? "Visited" : "Visit";
-    toggle.addEventListener("click", () => {
-      toggleVisited(tree.id);
-    });
-
-    row.append(button, toggle);
+    row.append(button);
     item.append(row);
     fragment.append(item);
   });
 
   elements.routeList.append(fragment);
   updateRouteSelection();
+  updateNextTreeGuidance();
 }
 
 function selectTree(treeId, openPopup) {
@@ -410,13 +435,13 @@ function selectTree(treeId, openPopup) {
 
   elements.treeDetail.innerHTML = "";
   elements.treeDetail.append(buildTreeCard(tree, false));
+  showSelectedTreePanel();
   updateTreeMarkerStates();
   updateRouteSelection();
   updateSelectedTreeLabel(tree);
-  scrollSelectedTreePanelIntoView();
 
   if (openPopup) {
-    state.map.flyTo([tree.latitude, tree.longitude], 18, { duration: 0.7 });
+    focusMapOnPoint([tree.latitude, tree.longitude], { zoom: 18, duration: 0.7 });
   }
 }
 
@@ -461,30 +486,30 @@ function buildTreeCard(tree, compact) {
 
   const body = document.createElement("div");
   body.className = "tree-body";
+  const statusText = state.visitedTreeIds.has(tree.id)
+    ? "Visited"
+    : state.arrivedTreeIds.has(tree.id)
+      ? "Arrived"
+      : "Active stop";
+  const coordinatesLabel = `${tree.latitude.toFixed(5)}, ${tree.longitude.toFixed(5)}`;
   body.innerHTML = `
+    <button type="button" class="tree-back-link" data-tree-action="back">
+      <span aria-hidden="true">&#8592;</span>
+      <span>Go back to tour</span>
+    </button>
     <div class="tree-header">
-      <h3>${tree.commonName}</h3>
-      <p class="tree-subtitle">${tree.scientificName}</p>
-      <p class="tree-family">${tree.family}</p>
+      <div class="tree-title-wrap">
+        <p class="tree-overline">Selected tree</p>
+        <h3>${tree.commonName}</h3>
+        <p class="tree-subtitle">${tree.scientificName}</p>
+      </div>
+      <span class="tree-route-pill">${getTreeRouteIndex(tree.id)}</span>
     </div>
-    <dl class="tree-meta">
-      <div>
-        <dt>Status</dt>
-        <dd>${state.visitedTreeIds.has(tree.id) ? "Visited" : state.arrivedTreeIds.has(tree.id) ? "Arrived" : "Active stop"}</dd>
-      </div>
-      <div>
-        <dt>Route</dt>
-        <dd>${getTreeRouteIndex(tree.id)}</dd>
-      </div>
-      <div>
-        <dt>Latitude</dt>
-        <dd>${tree.latitude.toFixed(6)}</dd>
-      </div>
-      <div>
-        <dt>Longitude</dt>
-        <dd>${tree.longitude.toFixed(6)}</dd>
-      </div>
-    </dl>
+    <div class="tree-inline-meta">
+      <span>${tree.family}</span>
+      <span>${statusText}</span>
+      <span>${coordinatesLabel}</span>
+    </div>
     <div class="tree-actions">
       <button type="button" class="tree-action ${state.visitedTreeIds.has(tree.id) ? "is-on" : ""}" data-tree-action="visit">
         ${state.visitedTreeIds.has(tree.id) ? "Visited" : "Mark Visited"}
@@ -492,6 +517,9 @@ function buildTreeCard(tree, compact) {
     </div>
   `;
 
+  body.querySelector('[data-tree-action="back"]')?.addEventListener("click", () => {
+    showTourPanel();
+  });
   body.querySelector('[data-tree-action="visit"]')?.addEventListener("click", () => {
     toggleVisited(tree.id);
   });
@@ -504,6 +532,10 @@ function buildTreeCard(tree, compact) {
 function renderTreeCount() {
   elements.treeCount.textContent = String(state.trees.length);
   updateArrivedCount();
+}
+
+function renderSelectedTreeEmptyState() {
+  elements.treeDetail.innerHTML = '<p class="empty-state">Select a tree marker or route stop to view details.</p>';
 }
 
 function getActiveStart() {
@@ -519,7 +551,9 @@ function getActiveStart() {
 }
 
 function setStatus(text) {
-  elements.statusChip.textContent = text;
+  if (elements.statusChip) {
+    elements.statusChip.textContent = text;
+  }
 }
 
 function showError(message) {
@@ -533,9 +567,13 @@ function clearError() {
 }
 
 function setButtonsDisabled(disabled) {
+  elements.mapControlsToggle.disabled = disabled;
   elements.homeButton.disabled = disabled;
   elements.locateButton.disabled = disabled;
-  elements.recenterButton.disabled = disabled;
+  elements.resetVisitedButton.disabled = disabled;
+  elements.resetVisitedInlineButton.disabled = disabled;
+  elements.zoomInButton.disabled = disabled;
+  elements.zoomOutButton.disabled = disabled;
 }
 
 function stopLocationWatch() {
@@ -608,6 +646,20 @@ function createTreeIcon(treeId) {
   });
 }
 
+function createUserIcon() {
+  return L.divIcon({
+    className: "",
+    html: `
+      <span class="user-marker">
+        <span class="user-heading-cone" style="transform: rotate(${state.currentHeading ?? 0}deg)"></span>
+        <span class="user-dot"></span>
+      </span>
+    `,
+    iconSize: [52, 52],
+    iconAnchor: [26, 26],
+  });
+}
+
 function updateTreeMarkerStates() {
   state.treeMarkers.forEach((marker, treeId) => {
     marker.setIcon(createTreeIcon(treeId));
@@ -642,6 +694,7 @@ function updateArrivals() {
     updateTreeMarkerStates();
     updateRouteSelection();
     updateRouteProgressAppearance();
+    updateNextTreeGuidance();
 
     const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
 
@@ -653,7 +706,7 @@ function updateArrivals() {
 }
 
 function updateArrivedCount() {
-  elements.arrivedCount.textContent = String(state.arrivedTreeIds.size);
+  elements.arrivedCount.textContent = String(new Set([...state.arrivedTreeIds, ...state.visitedTreeIds]).size);
 }
 
 function scrollSelectedTreePanelIntoView() {
@@ -661,6 +714,79 @@ function scrollSelectedTreePanelIntoView() {
     behavior: "smooth",
     block: "start",
   });
+}
+
+function showSelectedTreePanel() {
+  if (elements.tourPanel) {
+    elements.tourPanel.hidden = true;
+  }
+
+  if (elements.treePanel) {
+    elements.treePanel.hidden = false;
+  }
+
+  if (elements.treePanel && "open" in elements.treePanel) {
+    elements.treePanel.open = true;
+  }
+
+  scrollSelectedTreePanelIntoView();
+}
+
+function showTourPanel() {
+  if (elements.treePanel) {
+    elements.treePanel.hidden = true;
+  }
+
+  if (elements.tourPanel) {
+    elements.tourPanel.hidden = false;
+  }
+
+  if (elements.tourPanel && "open" in elements.tourPanel) {
+    elements.tourPanel.open = true;
+  }
+
+  elements.tourPanel?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
+function fitMapToBounds(bounds, options = {}) {
+  const padding = getViewportPadding();
+  state.map.fitBounds(bounds, {
+    animate: true,
+    duration: options.duration ?? 0.8,
+    paddingTopLeft: [padding.left, padding.top],
+    paddingBottomRight: [padding.right, padding.bottom],
+  });
+}
+
+function focusMapOnPoint(latLng, options = {}) {
+  const zoom = options.zoom ?? state.map.getZoom();
+  const targetCenter = getAdjustedMapCenter(latLng, zoom);
+  state.map.flyTo(targetCenter, zoom, { duration: options.duration ?? 0.8 });
+}
+
+function getAdjustedMapCenter(latLng, zoom) {
+  const padding = getViewportPadding();
+  const size = state.map.getSize();
+  const targetPoint = state.map.project(L.latLng(latLng), zoom);
+  const offset = L.point((padding.right - padding.left) / 2, (padding.bottom - padding.top) / 2);
+  const centerPoint = targetPoint.add(offset);
+  return state.map.unproject(centerPoint, zoom);
+}
+
+function getViewportPadding() {
+  const sidebarRect = elements.sidebar?.getBoundingClientRect();
+  const controlsRect = elements.mapControlGroup?.getBoundingClientRect();
+  const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+  return {
+    left: Math.round((controlsRect?.width ?? 48) + 18),
+    top: 18,
+    right: isMobile ? 18 : Math.round((sidebarRect?.width ?? 0) + 18),
+    bottom: Math.round((sidebarRect?.height ?? 0) + 18),
+  };
 }
 
 function distanceBetween(from, to) {
@@ -680,6 +806,29 @@ function toRadians(value) {
   return (value * Math.PI) / 180;
 }
 
+function updateNextTreeGuidance() {
+  const nextTree = getNextPendingTree();
+
+  if (!nextTree) {
+    elements.nextTreeName.textContent = "Tour complete";
+    elements.nextTreeDistance.textContent = "-";
+    return;
+  }
+
+  elements.nextTreeName.textContent = nextTree.commonName;
+
+  if (!state.currentPosition) {
+    elements.nextTreeDistance.textContent = "Need GPS";
+    return;
+  }
+
+  const distance = distanceBetween(state.currentPosition, {
+    lat: nextTree.latitude,
+    lng: nextTree.longitude,
+  });
+  elements.nextTreeDistance.textContent = formatDistance(distance);
+}
+
 function toggleVisited(treeId) {
   if (state.visitedTreeIds.has(treeId)) {
     state.visitedTreeIds.delete(treeId);
@@ -690,6 +839,24 @@ function toggleVisited(treeId) {
   updateTreeMarkerStates();
   updateRouteSelection();
   updateRouteProgressAppearance();
+
+  const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
+
+  if (selectedTree) {
+    elements.treeDetail.innerHTML = "";
+    elements.treeDetail.append(buildTreeCard(selectedTree, false));
+  }
+
+  renderTourSummary();
+  updateNextTreeGuidance();
+}
+
+function resetVisitedTrees() {
+  state.visitedTreeIds = new Set();
+  updateTreeMarkerStates();
+  updateRouteSelection();
+  updateRouteProgressAppearance();
+  updateNextTreeGuidance();
 
   const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
 
@@ -745,6 +912,12 @@ function getRouteOpacity() {
   return Math.max(0.22, 0.92 - progress * 0.6);
 }
 
+function getNextPendingTree() {
+  return state.tour?.orderedStops?.find(
+    (tree) => !state.arrivedTreeIds.has(tree.id) && !state.visitedTreeIds.has(tree.id),
+  ) ?? null;
+}
+
 function getTreeRouteIndex(treeId) {
   if (!state.tour?.orderedStops?.length) {
     return "Not in route";
@@ -759,4 +932,75 @@ function buildTreeBadge(text, modifier) {
   badge.className = `tree-card-badge ${modifier}`;
   badge.textContent = text;
   return badge;
+}
+
+function getPreferredHeading(rawHeading, previousPosition, currentPosition, fallbackHeading) {
+  if (Number.isFinite(rawHeading)) {
+    return rawHeading;
+  }
+
+  if (previousPosition) {
+    const movement = distanceBetween(previousPosition, currentPosition);
+
+    if (movement >= 2) {
+      return bearingBetween(previousPosition, currentPosition);
+    }
+  }
+
+  return fallbackHeading;
+}
+
+function bearingBetween(from, to) {
+  const fromLat = toRadians(from.lat);
+  const toLat = toRadians(to.lat);
+  const deltaLng = toRadians(to.lng - from.lng);
+  const y = Math.sin(deltaLng) * Math.cos(toLat);
+  const x =
+    Math.cos(fromLat) * Math.sin(toLat) -
+    Math.sin(fromLat) * Math.cos(toLat) * Math.cos(deltaLng);
+
+  return (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
+}
+
+function maybeVibrateForNextTree() {
+  const nextTree = getNextPendingTree();
+
+  if (!nextTree || !state.currentPosition || typeof navigator.vibrate !== "function") {
+    return;
+  }
+
+  const distance = distanceBetween(state.currentPosition, {
+    lat: nextTree.latitude,
+    lng: nextTree.longitude,
+  });
+
+  if (distance > VIBRATION_MAX_DISTANCE_METERS) {
+    return;
+  }
+
+  const now = Date.now();
+  const { pattern, cooldown } = getVibrationProfile(distance);
+
+  if (now - state.lastVibrationAt < cooldown) {
+    return;
+  }
+
+  state.lastVibrationAt = now;
+  navigator.vibrate(pattern);
+}
+
+function getVibrationProfile(distance) {
+  if (distance <= 5) {
+    return { pattern: [220, 70, 220, 70, 220], cooldown: 900 };
+  }
+
+  if (distance <= 10) {
+    return { pattern: [180, 80, 180], cooldown: 1400 };
+  }
+
+  if (distance <= 18) {
+    return { pattern: [130, 90, 130], cooldown: 2200 };
+  }
+
+  return { pattern: [90], cooldown: 3600 };
 }
