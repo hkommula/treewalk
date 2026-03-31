@@ -474,6 +474,18 @@ img {
     linear-gradient(135deg, rgba(31, 112, 78, 0.08), rgba(255, 255, 255, 0.14));
 }
 
+.tree-card-media-top {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  right: 0.65rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .tree-card img {
   width: 100%;
   aspect-ratio: 16 / 8.5;
@@ -483,7 +495,7 @@ img {
 
 .tree-card-ribbon {
   position: absolute;
-  top: 0.65rem;
+  top: 3rem;
   left: 0.65rem;
   display: flex;
   gap: 0.35rem;
@@ -541,6 +553,12 @@ img {
 
 .tree-back-link span + span {
   margin-left: 0.35rem;
+}
+
+.tree-back-link-overlay {
+  justify-self: auto;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.58rem;
 }
 
 .tree-header {
@@ -730,13 +748,74 @@ img {
 }
 
 @media (min-width: 768px) {
+  .map-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+  }
+
+  .map {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .sidebar {
-    width: min(24rem, 28vw);
+    position: relative;
+    right: auto;
+    bottom: auto;
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    gap: 0;
+    background: rgba(250, 247, 241, 0.97);
+    border-left: 1px solid var(--line);
+    box-shadow: -10px 0 28px rgba(27, 39, 31, 0.08);
+    overflow: hidden;
+  }
+
+  .panel {
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .collapsible-summary {
+    padding: 1.15rem 1.2rem 0.95rem;
+  }
+
+  .collapsible-body {
+    height: calc(100vh - 4.4rem);
+    padding: 0 1.2rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .route-list-wrap {
+    max-height: none;
+    flex: 1 1 auto;
   }
 
   .tree-panel .collapsible-body {
-    max-height: min(40vh, 24rem);
-    overflow: auto;
+    max-height: none;
+  }
+
+  .tree-detail,
+  .tree-card {
+    height: 100%;
+  }
+
+  .tree-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tree-body {
+    flex: 1 1 auto;
+    align-content: start;
   }
 }
 

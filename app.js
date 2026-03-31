@@ -462,10 +462,18 @@ function buildTreeCard(tree, compact) {
 
   const media = document.createElement("div");
   media.className = "tree-card-media";
+  const mediaTop = document.createElement("div");
+  mediaTop.className = "tree-card-media-top";
+  mediaTop.innerHTML = `
+    <span class="tree-card-badge is-selected">Selected</span>
+    <button type="button" class="tree-back-link tree-back-link-overlay" data-tree-action="back">
+      <span aria-hidden="true">&#8592;</span>
+      <span>Go back to tour</span>
+    </button>
+  `;
 
   const ribbon = document.createElement("div");
   ribbon.className = "tree-card-ribbon";
-  ribbon.append(buildTreeBadge("Selected", "is-selected"));
 
   if (state.arrivedTreeIds.has(tree.id)) {
     ribbon.append(buildTreeBadge("Arrived", "is-arrived"));
@@ -493,10 +501,6 @@ function buildTreeCard(tree, compact) {
       : "Active stop";
   const coordinatesLabel = `${tree.latitude.toFixed(5)}, ${tree.longitude.toFixed(5)}`;
   body.innerHTML = `
-    <button type="button" class="tree-back-link" data-tree-action="back">
-      <span aria-hidden="true">&#8592;</span>
-      <span>Go back to tour</span>
-    </button>
     <div class="tree-header">
       <div class="tree-title-wrap">
         <p class="tree-overline">Selected tree</p>
@@ -524,7 +528,7 @@ function buildTreeCard(tree, compact) {
     toggleVisited(tree.id);
   });
 
-  media.append(image, ribbon);
+  media.append(mediaTop, image, ribbon);
   card.append(media, body);
   return card;
 }
@@ -780,6 +784,15 @@ function getViewportPadding() {
   const sidebarRect = elements.sidebar?.getBoundingClientRect();
   const controlsRect = elements.mapControlGroup?.getBoundingClientRect();
   const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+  if (!isMobile) {
+    return {
+      left: 18,
+      top: 18,
+      right: 18,
+      bottom: 18,
+    };
+  }
 
   return {
     left: Math.round((controlsRect?.width ?? 48) + 18),
