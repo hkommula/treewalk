@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UOW Tree Walk Tour</title>
+    <meta
+      name="description"
+      content="Explore an optimized walking tour of campus trees with live location tracking."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Campus Explorer</p>
+          <h1>Tree Walk Tour</h1>
+        </div>
+        <div class="status-stack">
+          <span class="status-pill" id="app-status-pill">Loading data</span>
+          <button class="ghost-button" id="recenter-btn" type="button">
+            Recenter on Me
+          </button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="map-stage" aria-label="Interactive tour map">
+          <div id="map" class="map-canvas" role="application" aria-label="Tree walk map"></div>
+
+          <div class="map-overlay" id="map-loading-overlay" aria-live="polite">
+            <div class="overlay-card">
+              <span class="spinner" aria-hidden="true"></span>
+              <p id="loading-message">Preparing the tree walk experience...</p>
+            </div>
+          </div>
+
+          <div class="map-banner is-hidden" id="error-banner" role="alert"></div>
+        </section>
+
+        <aside class="info-panel" aria-label="Tour information">
+          <section class="panel-card intro-card">
+            <p class="eyebrow">Live guidance</p>
+            <h2>Walk the campus canopy</h2>
+            <p>
+              Allow location access so the app can find your nearest pathway node,
+              build a sensible walking order, and keep your marker updated as you move.
+            </p>
+
+            <div class="permission-box">
+              <div>
+                <strong>Location access</strong>
+                <p id="permission-copy">
+                  The app will request your browser location as soon as it is ready.
+                </p>
+              </div>
+              <button class="primary-button" id="allow-location-btn" type="button">
+                Enable Location
+              </button>
+            </div>
+          </section>
+
+          <section class="panel-card controls-card">
+            <div class="section-header">
+              <h2>Controls</h2>
+              <span class="section-badge" id="tracking-badge">Tracking off</span>
+            </div>
+
+            <div class="control-grid">
+              <button class="primary-button" id="start-tour-btn" type="button">
+                Start Tour
+              </button>
+              <button class="secondary-button" id="stop-tracking-btn" type="button">
+                Stop Tracking
+              </button>
+            </div>
+
+            <dl class="meta-grid">
+              <div>
+                <dt>Tour status</dt>
+                <dd id="tour-status">Waiting for data and location.</dd>
+              </div>
+              <div>
+                <dt>Last GPS fix</dt>
+                <dd id="gps-status">No live location yet.</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="panel-card route-card">
+            <div class="section-header">
+              <h2>Route Overview</h2>
+              <span class="section-badge" id="tree-count-badge">0 trees</span>
+            </div>
+
+            <div class="route-metrics" id="route-metrics">
+              <article>
+                <span>Distance</span>
+                <strong id="route-distance">-</strong>
+              </article>
+              <article>
+                <span>Est. time</span>
+                <strong id="route-duration">-</strong>
+              </article>
+              <article>
+                <span>Stops</span>
+                <strong id="route-stop-count">-</strong>
+              </article>
+            </div>
+
+            <div class="route-list-wrap">
+              <ol id="route-stop-list" class="route-list">
+                <li class="empty-state">Start a tour to see the optimized visit order.</li>
+              </ol>
+            </div>
+          </section>
+
+          <section class="panel-card selected-tree-card">
+            <div class="section-header">
+              <h2>Selected Tree</h2>
+              <span class="section-badge">Details</span>
+            </div>
+
+            <div id="selected-tree-content" class="selected-tree-content">
+              <div class="empty-state-card">
+                <p>Select a marker or route stop to inspect a tree.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+      if (window.location.protocol === "file:") {
+        const loadingMessage = document.getElementById("loading-message");
+        const errorBanner = document.getElementById("error-banner");
+        const statusPill = document.getElementById("app-status-pill");
+
+        if (loadingMessage) {
+          loadingMessage.textContent =
+            "Open this app through a local web server. Browsers block module loading, fetch(), and geolocation when launched directly from file://.";
+        }
+
+        if (errorBanner) {
+          errorBanner.textContent =
+            "Run a local server from the project root, then open /src/index.html through http://localhost.";
+          errorBanner.classList.remove("is-hidden");
+        }
+
+        if (statusPill) {
+          statusPill.textContent = "Server required";
+        }
+      }
+    </script>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
