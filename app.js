@@ -1,201 +1,198 @@
-import {
-  attachNearestGraphNodes,
-  buildGraphFromGeoJSON,
-  computeOptimizedWalkingTour,
-  parseTreesCsv,
-} from "./routing.js";
+import { attachTreeNodes, buildTour, buildWalkwayGraph, parseTreesCsv } from "./routing.js";
 
-const DEFAULT_VIEW = {
-  zoom: 17,
-};
-
+const DEFAULT_CENTER = { lat: -34.4062, lng: 150.8789 };
+const DEFAULT_ZOOM = 17;
 const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
-  maximumAge: 15000,
   timeout: 12000,
+  maximumAge: 12000,
 };
+const ARRIVAL_THRESHOLD_METERS = 18;
 
 const state = {
   map: null,
-  treeLayer: null,
-  routeLayer: null,
-  userMarker: null,
   trees: [],
   graph: null,
   tour: null,
-  treeMarkers: new Map(),
-  currentPosition: null,
-  watchId: null,
-  pendingTourStart: false,
   selectedTreeId: null,
+  arrivedTreeIds: new Set(),
+  visitedTreeIds: new Set(),
+  currentPosition: null,
+  manualStart: null,
+  startSource: null,
+  pendingAutoBuild: false,
+  watchId: null,
+  treeMarkers: new Map(),
+  selectedLabelMarker: null,
+  userMarker: null,
+  startMarker: null,
+  routeLayer: null,
+  walkwayLayer: null,
 };
 
 const elements = {
-  allowLocationButton: document.querySelector("#allow-location-btn"),
-  startTourButton: document.querySelector("#start-tour-btn"),
-  stopTrackingButton: document.querySelector("#stop-tracking-btn"),
-  recenterButton: document.querySelector("#recenter-btn"),
-  loadingOverlay: document.querySelector("#map-loading-overlay"),
-  loadingMessage: document.querySelector("#loading-message"),
-  errorBanner: document.querySelector("#error-banner"),
-  permissionCopy: document.querySelector("#permission-copy"),
-  appStatusPill: document.querySelector("#app-status-pill"),
-  trackingBadge: document.querySelector("#tracking-badge"),
-  tourStatus: document.querySelector("#tour-status"),
-  gpsStatus: document.querySelector("#gps-status"),
-  treeCountBadge: document.querySelector("#tree-count-badge"),
+  statusChip: document.querySelector("#status-chip"),
+  locationCopy: document.querySelector("#location-copy"),
+  startMode: document.querySelector("#start-mode"),
+  treeCount: document.querySelector("#tree-count"),
   routeDistance: document.querySelector("#route-distance"),
-  routeDuration: document.querySelector("#route-duration"),
-  routeStopCount: document.querySelector("#route-stop-count"),
-  routeStopList: document.querySelector("#route-stop-list"),
-  selectedTreeContent: document.querySelector("#selected-tree-content"),
+  routeTime: document.querySelector("#route-time"),
+  routeCount: document.querySelector("#route-count"),
+  gpsReadout: document.querySelector("#gps-readout"),
+  errorText: document.querySelector("#error-text"),
+  routeList: document.querySelector("#route-list"),
+  treeDetail: document.querySelector("#tree-detail"),
+  treePanel: document.querySelector("#tree-panel"),
+  arrivedCount: document.querySelector("#arrived-count"),
+  homeButton: document.querySelector("#home-btn"),
+  locateButton: document.querySelector("#locate-btn"),
+  recenterButton: document.querySelector("#recenter-btn"),
 };
 
 init().catch((error) => {
   console.error(error);
-  showError(error.message || "The app could not finish loading.");
-  setLoading(false);
+  showError(error.message || "App startup failed.");
+  setStatus("Error");
+  setButtonsDisabled(false);
 });
 
 async function init() {
   bindUi();
   setButtonsDisabled(true);
-  setLoading(true, "Loading trees and pathways...");
+  setStatus("Loading");
 
-  if (window.location.protocol === "file:") {
-    throw new Error(
-      "This app must be served over http://localhost (or another local web server), not opened directly from file://.",
-    );
-  }
-
-  // Load both datasets up front so the graph and markers are ready before geolocation starts.
-  const [treesCsvText, pathwaysGeoJSON] = await Promise.all([
-    fetchText("./data/trees.csv", "Unable to load tree CSV data."),
-    fetchJson("./data/pathways.geojson", "Unable to load pathway GeoJSON data."),
+  const [treesCsv, pathwaysGeojson] = await Promise.all([
+    fetchText("./data/trees.csv", "Could not load tree CSV."),
+    fetchJson("./data/pathways.geojson", "Could not load pathway GeoJSON."),
   ]);
 
-  const parsedTrees = parseTreesCsv(treesCsvText);
-  const graph = buildGraphFromGeoJSON(pathwaysGeoJSON);
-  const trees = attachNearestGraphNodes(parsedTrees, graph);
-  const initialCenter = getInitialCenter(trees);
+  const trees = parseTreesCsv(treesCsv);
+  const graph = buildWalkwayGraph(pathwaysGeojson);
+  const routedTrees = attachTreeNodes(trees, graph);
 
-  state.trees = trees;
+  state.trees = routedTrees;
   state.graph = graph;
 
-  createMap(initialCenter);
-  renderTreeMarkers();
-  updateTreeCountBadge();
-  updateTourSummary(null);
-  updateLocationStatus("Location prompt pending.", false);
-  updateTourStatus("Choose Start Tour once a GPS fix is available.");
+  createMap(getTreeCenter(routedTrees));
+  renderWalkways();
+  renderTrees();
+  renderTreeCount();
+  setStatus("Ready");
+  elements.locationCopy.textContent =
+    "Allow location to start from your GPS. If you deny access, use the current map center as the route start.";
   setButtonsDisabled(false);
-  setLoading(false);
-  requestLiveLocation(true);
+  startLocationWatch();
 }
 
 function bindUi() {
-  elements.allowLocationButton.addEventListener("click", () => {
-    requestLiveLocation(true);
-  });
+  elements.locateButton.addEventListener("click", () => {
+    state.startSource = "gps";
+    state.pendingAutoBuild = true;
+    renderStartMarker();
 
-  elements.startTourButton.addEventListener("click", () => {
-    handleStartTour();
-  });
+    if (state.currentPosition) {
+      elements.startMode.textContent = "Live GPS";
+      setStatus("GPS Live");
+      buildAndRenderTour();
+    } else {
+      elements.startMode.textContent = "GPS pending";
+      setStatus("Locating");
+    }
 
-  elements.stopTrackingButton.addEventListener("click", () => {
-    stopTracking();
+    startLocationWatch(true);
   });
-
   elements.recenterButton.addEventListener("click", () => {
-    if (!state.map || !state.currentPosition) {
-      showError("A live location fix is needed before the map can recenter.");
+    if (state.currentPosition) {
+      state.map.flyTo([state.currentPosition.lat, state.currentPosition.lng], 18, { duration: 0.8 });
       return;
     }
 
-    state.map.flyTo([state.currentPosition.lat, state.currentPosition.lng], 18, {
-      animate: true,
-      duration: 0.75,
-    });
+    if (state.manualStart) {
+      state.map.flyTo([state.manualStart.lat, state.manualStart.lng], 18, { duration: 0.8 });
+    }
+  });
+
+  elements.homeButton.addEventListener("click", () => {
+    if (state.tour?.coordinates?.length) {
+      const bounds = L.latLngBounds(state.tour.coordinates.map(([lat, lng]) => [lat, lng]));
+      state.map.fitBounds(bounds.pad(0.1), { animate: true, duration: 1.5 });
+      return;
+    }
+
+    const bounds = L.latLngBounds(state.trees.map((tree) => [tree.latitude, tree.longitude]));
+    state.map.fitBounds(bounds.pad(0.22), { animate: true, duration: 0.8 });
   });
 }
 
-async function handleStartTour() {
-  clearError();
+function createMap(center) {
+  state.map = L.map("map", {
+    zoomControl: false,
+    preferCanvas: true,
+  }).setView([center.lat, center.lng], DEFAULT_ZOOM);
 
-  if (!state.graph || !state.trees.length) {
-    showError("Tour data is still loading.");
-    return;
+  L.control.zoom({ position: "bottomright" }).addTo(state.map);
+
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 20,
+    subdomains: "abcd",
+    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+  }).addTo(state.map);
+
+  state.map.on("click", (event) => {
+    setManualStart({ lat: event.latlng.lat, lng: event.latlng.lng });
+  });
+}
+
+function renderWalkways() {
+  if (state.walkwayLayer) {
+    state.walkwayLayer.remove();
   }
 
-  if (!state.currentPosition) {
-    state.pendingTourStart = true;
-    updateTourStatus("Waiting for a location fix before building the route...");
-    requestLiveLocation(false);
-    return;
-  }
+  state.walkwayLayer = L.layerGroup(
+    state.graph.walkwayLines.map((line) =>
+      L.polyline(line, {
+        color: "#7fa089",
+        weight: 3,
+        opacity: 0.55,
+      }),
+    ),
+  ).addTo(state.map);
+}
 
-  try {
-    setLoading(true, "Computing an optimized walking tour...");
-    // Tour generation stays in the routing module so map code only deals with rendering.
-    const tour = computeOptimizedWalkingTour({
-      startPosition: state.currentPosition,
-      trees: state.trees,
-      graph: state.graph,
+function renderTrees() {
+  const markers = state.trees.map((tree) => {
+    const marker = L.marker([tree.latitude, tree.longitude], {
+      icon: createTreeIcon(tree.id),
     });
+    marker.on("click", () => selectTree(tree.id, true));
+    state.treeMarkers.set(tree.id, marker);
+    return marker;
+  });
 
-    state.tour = tour;
-    renderRoute(tour);
-    updateTourSummary(tour);
-    updateTourStatus(`Tour ready. ${tour.orderedStops.length} trees arranged from your current location.`);
-
-    if (tour.orderedStops[0]) {
-      selectTree(tour.orderedStops[0].id, true);
-    }
-
-    const routeBounds = L.latLngBounds(tour.coordinates.map(([lat, lng]) => [lat, lng]));
-    state.map.fitBounds(routeBounds.pad(0.15), { animate: true, duration: 0.8 });
-  } catch (error) {
-    console.error(error);
-    showError(error.message || "Route computation failed.");
-    updateTourStatus("Route computation failed. Please try again.");
-  } finally {
-    state.pendingTourStart = false;
-    setLoading(false);
-  }
+  L.layerGroup(markers).addTo(state.map);
 }
 
-function requestLiveLocation(showPromptMessage) {
+function startLocationWatch(triggeredByUser = false) {
   if (!("geolocation" in navigator)) {
-    showError("This browser does not support geolocation.");
-    elements.permissionCopy.textContent = "Geolocation is unavailable in this browser.";
-    updateLocationStatus("Browser geolocation unsupported.", false);
+    elements.locationCopy.textContent = "This browser does not support geolocation. Use the map center instead.";
     return;
   }
 
   clearError();
 
-  if (showPromptMessage) {
-    elements.permissionCopy.textContent =
-      "Please allow location access so the tour can start from your current position and update live as you walk.";
-  }
-
-  if (state.watchId === null) {
-    updateLocationStatus("Requesting live location access...", true);
-    state.watchId = navigator.geolocation.watchPosition(
-      handleLocationSuccess,
-      handleLocationError,
-      GEOLOCATION_OPTIONS,
-    );
-  }
-}
-
-function stopTracking(statusMessage = "Tracking paused.") {
   if (state.watchId !== null) {
-    navigator.geolocation.clearWatch(state.watchId);
-    state.watchId = null;
+    return;
   }
 
-  updateLocationStatus(statusMessage, false);
+  if (triggeredByUser) {
+    elements.locationCopy.textContent = "Requesting your location permission now.";
+  }
+
+  state.watchId = navigator.geolocation.watchPosition(
+    handleLocationSuccess,
+    handleLocationError,
+    GEOLOCATION_OPTIONS,
+  );
 }
 
 function handleLocationSuccess(position) {
@@ -203,118 +200,204 @@ function handleLocationSuccess(position) {
     lat: position.coords.latitude,
     lng: position.coords.longitude,
     accuracy: position.coords.accuracy,
-    timestamp: position.timestamp,
   };
 
-  updateUserMarker();
-  updateLocationStatus(
-    `${formatCoordinates(state.currentPosition.lat, state.currentPosition.lng)} | +/-${Math.round(
-      state.currentPosition.accuracy,
-    )}m`,
-    true,
-  );
-  elements.permissionCopy.textContent =
-    "Location active. The app will keep your position marker updated while tracking remains on.";
+  if (!state.startSource) {
+    state.startSource = "gps";
+  }
 
-  if (state.pendingTourStart) {
-    handleStartTour();
+  renderUserMarker();
+  renderStartMarker();
+  updateArrivals();
+  setStatus(state.startSource === "manual" ? "Manual Ready" : "GPS Live");
+  elements.startMode.textContent = state.startSource === "manual" ? "Manual" : "Live GPS";
+  elements.gpsReadout.textContent =
+    `${state.currentPosition.lat.toFixed(5)}, ${state.currentPosition.lng.toFixed(5)} ` +
+    `| +/-${Math.round(state.currentPosition.accuracy)} m`;
+
+  if (state.startSource === "gps" && (state.pendingAutoBuild || !state.tour)) {
+    state.pendingAutoBuild = false;
+    buildAndRenderTour();
   }
 }
 
 function handleLocationError(error) {
-  state.pendingTourStart = false;
+  stopLocationWatch();
+
+  if (state.manualStart) {
+    state.startSource = "manual";
+  } else if (state.startSource === "gps") {
+    state.startSource = null;
+  }
 
   if (error.code === error.PERMISSION_DENIED) {
-    showError("Location access was denied. Enable it in your browser settings to build a tour from your position.");
-    elements.permissionCopy.textContent =
-      "Location permission is currently denied. You can retry or enable it from browser settings.";
-    stopTracking("Location denied.");
-    return;
+    elements.locationCopy.textContent =
+      "Location denied. Click the map or use the current center to choose a manual start point.";
+    elements.startMode.textContent = state.manualStart ? "Manual" : "Manual needed";
+    showError("Location access was denied. Manual start remains available.");
+  } else if (error.code === error.TIMEOUT) {
+    showError("Location timed out. You can retry or use map center.");
+  } else {
+    showError("Could not read your location. You can still build from map center.");
   }
 
-  if (error.code === error.TIMEOUT) {
-    showError("Location lookup timed out. Try moving to an area with better GPS coverage.");
-    stopTracking("Location lookup timed out.");
-    return;
-  }
-
-  showError("A live location fix could not be retrieved.");
-  stopTracking("Location unavailable.");
+  setStatus("Manual Ready");
+  elements.gpsReadout.textContent = "No live GPS fix yet.";
 }
 
-function createMap(center) {
-  state.map = L.map("map", {
-    zoomControl: false,
-    preferCanvas: true,
-  }).setView([center.lat, center.lng], DEFAULT_VIEW.zoom);
-
-  L.control.zoom({ position: "bottomright" }).addTo(state.map);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 20,
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(state.map);
+function setManualStart(position) {
+  state.manualStart = position;
+  state.startSource = "manual";
+  state.pendingAutoBuild = false;
+  renderStartMarker();
+  elements.startMode.textContent = "Manual";
+  elements.gpsReadout.textContent = `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)} | map start`;
+  setStatus("Manual Ready");
+  clearError();
+  buildAndRenderTour();
 }
 
-function renderTreeMarkers() {
-  if (state.treeLayer) {
-    state.treeLayer.remove();
-  }
-
-  const treeIcon = L.divIcon({
-    className: "",
-    html: '<span class="tree-pin"></span>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
-
-  const markers = state.trees.map((tree) => {
-    const marker = L.marker([tree.latitude, tree.longitude], { icon: treeIcon });
-    marker.bindPopup(buildTreePopup(tree), { maxWidth: 280 });
-    marker.on("click", () => {
-      selectTree(tree.id, false);
-    });
-    state.treeMarkers.set(tree.id, marker);
-    return marker;
-  });
-
-  state.treeLayer = L.layerGroup(markers).addTo(state.map);
-}
-
-function renderRoute(tour) {
-  if (state.routeLayer) {
-    state.routeLayer.remove();
-  }
-
-  state.routeLayer = L.polyline(tour.coordinates, {
-    color: "#23694a",
-    weight: 5,
-    opacity: 0.88,
-    lineJoin: "round",
-  }).addTo(state.map);
-}
-
-function updateUserMarker() {
-  if (!state.map || !state.currentPosition) {
+function renderUserMarker() {
+  if (!state.currentPosition) {
     return;
   }
 
   if (!state.userMarker) {
-    // A lightweight div icon keeps the live position marker easy to theme with CSS.
-    const userIcon = L.divIcon({
+    const icon = L.divIcon({
       className: "",
-      html: '<span class="user-pin"></span>',
+      html: '<span class="user-marker"></span>',
       iconSize: [20, 20],
       iconAnchor: [10, 10],
     });
 
     state.userMarker = L.marker([state.currentPosition.lat, state.currentPosition.lng], {
-      icon: userIcon,
+      icon,
       zIndexOffset: 1000,
     }).addTo(state.map);
   } else {
     state.userMarker.setLatLng([state.currentPosition.lat, state.currentPosition.lng]);
   }
+}
+
+function renderStartMarker() {
+  const start = getActiveStart();
+
+  if (!start) {
+    if (state.startMarker) {
+      state.startMarker.remove();
+      state.startMarker = null;
+    }
+
+    return;
+  }
+
+  if (!state.startMarker) {
+    state.startMarker = L.circleMarker([start.lat, start.lng], {
+      radius: 8,
+      color: "#154e36",
+      weight: 2,
+      fillColor: "#ffffff",
+      fillOpacity: 1,
+    }).addTo(state.map);
+  } else {
+    state.startMarker.setLatLng([start.lat, start.lng]);
+  }
+}
+
+function buildAndRenderTour() {
+  clearError();
+
+  const start = getActiveStart();
+
+  if (!start) {
+    showError("Choose a start point from GPS or use the map center first.");
+    return;
+  }
+
+  try {
+    const tour = buildTour({
+      start,
+      trees: state.trees,
+      graph: state.graph,
+    });
+
+    state.tour = tour;
+    state.arrivedTreeIds = new Set();
+    state.visitedTreeIds = new Set();
+    renderRoute();
+    renderTourSummary();
+    updateArrivedCount();
+    updateTreeMarkerStates();
+    updateArrivals();
+
+    if (tour.orderedStops[0]) {
+      selectTree(tour.orderedStops[0].id, true);
+    }
+
+    const bounds = L.latLngBounds(tour.coordinates.map(([lat, lng]) => [lat, lng]));
+    state.map.fitBounds(bounds.pad(0.08), { animate: true, duration: 0.8 });
+    setStatus("Route Ready");
+  } catch (error) {
+    console.error(error);
+    showError(error.message || "Could not build the walking route.");
+  }
+}
+
+function renderRoute() {
+  if (state.routeLayer) {
+    state.routeLayer.remove();
+  }
+
+  state.routeLayer = L.polyline(state.tour.coordinates, {
+    color: "#1d7a53",
+    weight: 5,
+    opacity: getRouteOpacity(),
+    lineCap: "round",
+    lineJoin: "round",
+  }).addTo(state.map);
+}
+
+function renderTourSummary() {
+  if (!state.tour) {
+    return;
+  }
+
+  elements.routeDistance.textContent = formatDistance(state.tour.totalDistanceMeters);
+  elements.routeTime.textContent = `${state.tour.estimatedMinutes} min`;
+  elements.routeCount.textContent = `${state.tour.orderedStops.length} stops`;
+  elements.routeList.innerHTML = "";
+
+  const fragment = document.createDocumentFragment();
+
+  state.tour.orderedStops.forEach((tree, index) => {
+    const item = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "route-stop-row";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "route-stop";
+    button.dataset.treeId = tree.id;
+    button.innerHTML = `<strong>${index + 1}. ${tree.commonName}</strong><span>${tree.scientificName}</span>`;
+    button.addEventListener("click", () => {
+      selectTree(tree.id, true);
+    });
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = `visit-toggle ${state.visitedTreeIds.has(tree.id) ? "is-on" : ""}`;
+    toggle.textContent = state.visitedTreeIds.has(tree.id) ? "Visited" : "Visit";
+    toggle.addEventListener("click", () => {
+      toggleVisited(tree.id);
+    });
+
+    row.append(button, toggle);
+    item.append(row);
+    fragment.append(item);
+  });
+
+  elements.routeList.append(fragment);
+  updateRouteSelection();
 }
 
 function selectTree(treeId, openPopup) {
@@ -325,154 +408,148 @@ function selectTree(treeId, openPopup) {
     return;
   }
 
-  renderSelectedTree(tree);
-  updateRouteStopSelection(treeId);
+  elements.treeDetail.innerHTML = "";
+  elements.treeDetail.append(buildTreeCard(tree, false));
+  updateTreeMarkerStates();
+  updateRouteSelection();
+  updateSelectedTreeLabel(tree);
+  scrollSelectedTreePanelIntoView();
 
   if (openPopup) {
-    state.treeMarkers.get(treeId)?.openPopup();
+    state.map.flyTo([tree.latitude, tree.longitude], 18, { duration: 0.7 });
   }
 }
 
-function renderSelectedTree(tree) {
-  elements.selectedTreeContent.innerHTML = "";
-  elements.selectedTreeContent.append(buildTreeCard(tree));
-}
-
-function updateTourSummary(tour) {
-  if (!tour) {
-    elements.routeDistance.textContent = "-";
-    elements.routeDuration.textContent = "-";
-    elements.routeStopCount.textContent = "-";
-    elements.routeStopList.innerHTML =
-      '<li class="empty-state">Start a tour to see the optimized visit order.</li>';
-    return;
-  }
-
-  elements.routeDistance.textContent = formatDistance(tour.totalDistanceMeters);
-  elements.routeDuration.textContent = `${tour.estimatedMinutes} min`;
-  elements.routeStopCount.textContent = String(tour.orderedStops.length);
-  elements.routeStopList.innerHTML = "";
-
-  const fragment = document.createDocumentFragment();
-
-  tour.orderedStops.forEach((tree, index) => {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "route-stop-button";
-    button.dataset.treeId = tree.id;
-    button.innerHTML = `
-      <strong>${index + 1}. ${tree.commonName}</strong>
-      <small>${tree.scientificName} | ${tree.family}</small>
-    `;
-    button.addEventListener("click", () => {
-      selectTree(tree.id, true);
-      const marker = state.treeMarkers.get(tree.id);
-
-      if (marker) {
-        state.map.flyTo(marker.getLatLng(), 19, { animate: true, duration: 0.7 });
-      }
-    });
-    item.append(button);
-    fragment.append(item);
-  });
-
-  elements.routeStopList.append(fragment);
-  updateRouteStopSelection(state.selectedTreeId);
-}
-
-function updateRouteStopSelection(activeTreeId) {
-  elements.routeStopList.querySelectorAll(".route-stop-button").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.treeId === activeTreeId);
+function updateRouteSelection() {
+  elements.routeList.querySelectorAll(".route-stop").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.treeId === state.selectedTreeId);
+    button.classList.toggle("is-arrived", state.arrivedTreeIds.has(button.dataset.treeId));
+    button.classList.toggle("is-visited", state.visitedTreeIds.has(button.dataset.treeId));
   });
 }
 
-function updateTreeCountBadge() {
-  elements.treeCountBadge.textContent = `${state.trees.length} trees`;
-}
-
-function updateTourStatus(message) {
-  elements.tourStatus.textContent = message;
-}
-
-function updateLocationStatus(message, isTracking) {
-  elements.gpsStatus.textContent = message;
-  elements.trackingBadge.textContent = isTracking ? "Tracking on" : "Tracking off";
-  elements.appStatusPill.textContent = isTracking
-    ? state.currentPosition
-      ? "Location live"
-      : "Locating"
-    : "Ready";
-}
-
-function setButtonsDisabled(isDisabled) {
-  elements.allowLocationButton.disabled = isDisabled;
-  elements.startTourButton.disabled = isDisabled;
-  elements.stopTrackingButton.disabled = isDisabled;
-  elements.recenterButton.disabled = isDisabled;
-}
-
-function setLoading(isLoading, message = "Working...") {
-  elements.loadingOverlay.classList.toggle("is-hidden", !isLoading);
-  elements.loadingMessage.textContent = message;
-}
-
-function showError(message) {
-  elements.errorBanner.textContent = message;
-  elements.errorBanner.classList.remove("is-hidden");
-}
-
-function clearError() {
-  elements.errorBanner.textContent = "";
-  elements.errorBanner.classList.add("is-hidden");
-}
-
-function buildTreePopup(tree) {
-  return buildTreeCard(tree, true);
-}
-
-function buildTreeCard(tree, compact = false) {
+function buildTreeCard(tree, compact) {
   const card = document.createElement("article");
-  card.className = compact ? "popup-card" : "tree-card";
+  card.className = "tree-card";
+  card.classList.toggle("is-selected", tree.id === state.selectedTreeId);
+  card.classList.toggle("is-arrived", state.arrivedTreeIds.has(tree.id));
+  card.classList.toggle("is-visited", state.visitedTreeIds.has(tree.id));
 
   const media = document.createElement("div");
-  media.className = "tree-media";
+  media.className = "tree-card-media";
+
+  const ribbon = document.createElement("div");
+  ribbon.className = "tree-card-ribbon";
+  ribbon.append(buildTreeBadge("Selected", "is-selected"));
+
+  if (state.arrivedTreeIds.has(tree.id)) {
+    ribbon.append(buildTreeBadge("Arrived", "is-arrived"));
+  }
+
+  if (state.visitedTreeIds.has(tree.id)) {
+    ribbon.append(buildTreeBadge("Visited", "is-visited"));
+  }
 
   const image = document.createElement("img");
-  image.alt = `${tree.commonName}`;
+  image.src = encodeURI(`./images/${tree.photoFilename}`);
+  image.alt = tree.commonName;
   image.loading = "lazy";
-  image.src = buildImagePath(tree.photoFilename);
-
-  const fallback = document.createElement("div");
-  fallback.className = "tree-media-fallback";
-  fallback.textContent = "Tree image unavailable";
-  fallback.hidden = true;
 
   image.addEventListener("error", () => {
     image.remove();
-    fallback.hidden = false;
   });
 
-  media.append(image, fallback);
-
   const body = document.createElement("div");
-  body.className = "tree-card-body";
+  body.className = "tree-body";
   body.innerHTML = `
-    <h3>${tree.commonName}</h3>
-    <p><strong>${tree.scientificName}</strong></p>
-    <p class="tree-card-meta">${tree.family}</p>
-    <p class="tree-card-meta">Lat ${tree.latitude.toFixed(6)}, Lng ${tree.longitude.toFixed(6)}</p>
+    <div class="tree-header">
+      <h3>${tree.commonName}</h3>
+      <p class="tree-subtitle">${tree.scientificName}</p>
+      <p class="tree-family">${tree.family}</p>
+    </div>
+    <dl class="tree-meta">
+      <div>
+        <dt>Status</dt>
+        <dd>${state.visitedTreeIds.has(tree.id) ? "Visited" : state.arrivedTreeIds.has(tree.id) ? "Arrived" : "Active stop"}</dd>
+      </div>
+      <div>
+        <dt>Route</dt>
+        <dd>${getTreeRouteIndex(tree.id)}</dd>
+      </div>
+      <div>
+        <dt>Latitude</dt>
+        <dd>${tree.latitude.toFixed(6)}</dd>
+      </div>
+      <div>
+        <dt>Longitude</dt>
+        <dd>${tree.longitude.toFixed(6)}</dd>
+      </div>
+    </dl>
+    <div class="tree-actions">
+      <button type="button" class="tree-action ${state.visitedTreeIds.has(tree.id) ? "is-on" : ""}" data-tree-action="visit">
+        ${state.visitedTreeIds.has(tree.id) ? "Visited" : "Mark Visited"}
+      </button>
+    </div>
   `;
 
+  body.querySelector('[data-tree-action="visit"]')?.addEventListener("click", () => {
+    toggleVisited(tree.id);
+  });
+
+  media.append(image, ribbon);
   card.append(media, body);
   return card;
 }
 
-function buildImagePath(filename) {
-  return encodeURI(`./images/${filename}`);
+function renderTreeCount() {
+  elements.treeCount.textContent = String(state.trees.length);
+  updateArrivedCount();
 }
 
-function getInitialCenter(trees) {
+function getActiveStart() {
+  if (state.startSource === "manual") {
+    return state.manualStart;
+  }
+
+  if (state.startSource === "gps") {
+    return state.currentPosition;
+  }
+
+  return state.currentPosition ?? state.manualStart;
+}
+
+function setStatus(text) {
+  elements.statusChip.textContent = text;
+}
+
+function showError(message) {
+  elements.errorText.hidden = false;
+  elements.errorText.textContent = message;
+}
+
+function clearError() {
+  elements.errorText.hidden = true;
+  elements.errorText.textContent = "";
+}
+
+function setButtonsDisabled(disabled) {
+  elements.homeButton.disabled = disabled;
+  elements.locateButton.disabled = disabled;
+  elements.recenterButton.disabled = disabled;
+}
+
+function stopLocationWatch() {
+  if (state.watchId !== null) {
+    navigator.geolocation.clearWatch(state.watchId);
+    state.watchId = null;
+  }
+}
+
+function getTreeCenter(trees) {
+  if (!trees.length) {
+    return DEFAULT_CENTER;
+  }
+
   const totals = trees.reduce(
     (accumulator, tree) => {
       accumulator.lat += tree.latitude;
@@ -508,12 +585,178 @@ async function fetchJson(url, errorMessage) {
   return response.json();
 }
 
-function formatDistance(distanceMeters) {
-  return distanceMeters >= 1000
-    ? `${(distanceMeters / 1000).toFixed(2)} km`
-    : `${Math.round(distanceMeters)} m`;
+function formatDistance(meters) {
+  return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
 }
 
-function formatCoordinates(lat, lng) {
-  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+function createTreeIcon(treeId) {
+  const classes = ["tree-marker"];
+
+  if (state.visitedTreeIds.has(treeId)) {
+    classes.push("is-visited");
+  } else if (state.arrivedTreeIds.has(treeId)) {
+    classes.push("is-arrived");
+  } else if (state.selectedTreeId === treeId) {
+    classes.push("is-selected");
+  }
+
+  return L.divIcon({
+    className: "",
+    html: `<span class="${classes.join(" ")}"></span>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
+
+function updateTreeMarkerStates() {
+  state.treeMarkers.forEach((marker, treeId) => {
+    marker.setIcon(createTreeIcon(treeId));
+  });
+}
+
+function updateArrivals() {
+  if (!state.currentPosition || !state.tour) {
+    return;
+  }
+
+  let changed = false;
+
+  for (const tree of state.tour.orderedStops) {
+    if (state.arrivedTreeIds.has(tree.id)) {
+      continue;
+    }
+
+    const distance = distanceBetween(state.currentPosition, {
+      lat: tree.latitude,
+      lng: tree.longitude,
+    });
+
+    if (distance <= ARRIVAL_THRESHOLD_METERS) {
+      state.arrivedTreeIds.add(tree.id);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    updateArrivedCount();
+    updateTreeMarkerStates();
+    updateRouteSelection();
+    updateRouteProgressAppearance();
+
+    const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
+
+    if (selectedTree) {
+      elements.treeDetail.innerHTML = "";
+      elements.treeDetail.append(buildTreeCard(selectedTree, false));
+    }
+  }
+}
+
+function updateArrivedCount() {
+  elements.arrivedCount.textContent = String(state.arrivedTreeIds.size);
+}
+
+function scrollSelectedTreePanelIntoView() {
+  elements.treePanel?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
+function distanceBetween(from, to) {
+  const earthRadius = 6371000;
+  const dLat = toRadians(to.lat - from.lat);
+  const dLng = toRadians(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(from.lat)) *
+      Math.cos(toRadians(to.lat)) *
+      Math.sin(dLng / 2) ** 2;
+
+  return 2 * earthRadius * Math.asin(Math.sqrt(a));
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function toggleVisited(treeId) {
+  if (state.visitedTreeIds.has(treeId)) {
+    state.visitedTreeIds.delete(treeId);
+  } else {
+    state.visitedTreeIds.add(treeId);
+  }
+
+  updateTreeMarkerStates();
+  updateRouteSelection();
+  updateRouteProgressAppearance();
+
+  const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
+
+  if (selectedTree) {
+    elements.treeDetail.innerHTML = "";
+    elements.treeDetail.append(buildTreeCard(selectedTree, false));
+  }
+
+  renderTourSummary();
+}
+
+function updateSelectedTreeLabel(tree) {
+  if (!tree || !state.map) {
+    if (state.selectedLabelMarker) {
+      state.selectedLabelMarker.remove();
+      state.selectedLabelMarker = null;
+    }
+    return;
+  }
+
+  const labelIcon = L.divIcon({
+    className: "tree-name-label",
+    html: `<span>${tree.commonName}</span>`,
+    iconSize: null,
+    iconAnchor: [0, 36],
+  });
+
+  if (!state.selectedLabelMarker) {
+    state.selectedLabelMarker = L.marker([tree.latitude, tree.longitude], {
+      icon: labelIcon,
+      interactive: false,
+      zIndexOffset: 1100,
+    }).addTo(state.map);
+  } else {
+    state.selectedLabelMarker.setLatLng([tree.latitude, tree.longitude]);
+    state.selectedLabelMarker.setIcon(labelIcon);
+  }
+}
+
+function updateRouteProgressAppearance() {
+  if (state.routeLayer) {
+    state.routeLayer.setStyle({ opacity: getRouteOpacity() });
+  }
+}
+
+function getRouteOpacity() {
+  if (!state.tour?.orderedStops?.length) {
+    return 0.92;
+  }
+
+  const completed = new Set([...state.arrivedTreeIds, ...state.visitedTreeIds]).size;
+  const progress = completed / state.tour.orderedStops.length;
+  return Math.max(0.22, 0.92 - progress * 0.6);
+}
+
+function getTreeRouteIndex(treeId) {
+  if (!state.tour?.orderedStops?.length) {
+    return "Not in route";
+  }
+
+  const index = state.tour.orderedStops.findIndex((tree) => tree.id === treeId);
+  return index >= 0 ? `${index + 1} of ${state.tour.orderedStops.length}` : "Not in route";
+}
+
+function buildTreeBadge(text, modifier) {
+  const badge = document.createElement("span");
+  badge.className = `tree-card-badge ${modifier}`;
+  badge.textContent = text;
+  return badge;
 }

@@ -3,16 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UOW Tree Walk Tour</title>
+    <title>UOW Tree Walk</title>
     <meta
       name="description"
-      content="Explore an optimized walking tour of campus trees with live location tracking."
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
+      content="Lightweight tree walk map with OSM walkway routing and live location tracking."
     />
     <link
       rel="stylesheet"
@@ -23,121 +17,95 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
+    <div class="app">
+      <header class="hero">
         <div>
-          <p class="eyebrow">Campus Explorer</p>
-          <h1>Tree Walk Tour</h1>
+          <p class="eyebrow">University of Wollongong</p>
+          <h1>Tree Walk</h1>
+          <p class="intro">
+            Lightweight campus tree tour using OSM walkway data and live GPS.
+          </p>
         </div>
-        <div class="status-stack">
-          <span class="status-pill" id="app-status-pill">Loading data</span>
-          <button class="ghost-button" id="recenter-btn" type="button">
-            Recenter on Me
-          </button>
-        </div>
+        <span class="status-chip" id="status-chip">Loading</span>
       </header>
 
       <main class="layout">
-        <section class="map-stage" aria-label="Interactive tour map">
-          <div id="map" class="map-canvas" role="application" aria-label="Tree walk map"></div>
-
-          <div class="map-overlay" id="map-loading-overlay" aria-live="polite">
-            <div class="overlay-card">
-              <span class="spinner" aria-hidden="true"></span>
-              <p id="loading-message">Preparing the tree walk experience...</p>
-            </div>
+        <section class="panel map-panel" aria-label="Map">
+          <div class="map-toolbar" aria-label="Map tools">
+            <button id="home-btn" type="button" class="map-tool" aria-label="Home view" title="Home view">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5v7a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>
+            </button>
+            <button id="locate-btn" type="button" class="map-tool" aria-label="Locate me" title="Locate me">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2h2v3.1a7 7 0 0 1 5.9 5.9H22v2h-3.1a7 7 0 0 1-5.9 5.9V22h-2v-3.1a7 7 0 0 1-5.9-5.9H2v-2h3.1A7 7 0 0 1 11 5.1zm1 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4"/></svg>
+            </button>
+            <button id="recenter-btn" type="button" class="map-tool" aria-label="Recenter" title="Recenter">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zM3 14h2v5h5v2H3zm16 0h2v7h-7v-2h5z"/></svg>
+            </button>
           </div>
-
-          <div class="map-banner is-hidden" id="error-banner" role="alert"></div>
+          <div id="map" class="map" role="application" aria-label="Tree walk map"></div>
         </section>
 
-        <aside class="info-panel" aria-label="Tour information">
-          <section class="panel-card intro-card">
-            <p class="eyebrow">Live guidance</p>
-            <h2>Walk the campus canopy</h2>
-            <p>
-              Allow location access so the app can find your nearest pathway node,
-              build a sensible walking order, and keep your marker updated as you move.
-            </p>
-
-            <div class="permission-box">
-              <div>
-                <strong>Location access</strong>
-                <p id="permission-copy">
-                  The app will request your browser location as soon as it is ready.
-                </p>
+        <aside class="sidebar">
+          <details class="panel controls collapsible-panel" open>
+            <summary class="collapsible-summary">
+              <h2>Start</h2>
+              <span class="small-chip">Toggle</span>
+            </summary>
+            <div class="collapsible-body">
+              <p class="muted" id="location-copy">
+                Allow location to start from your position. If GPS is denied, use the current map center.
+              </p>
+              <div class="start-hints">
+                <span class="small-chip">Tap map to place a manual start</span>
+                <span class="small-chip">Route updates automatically after GPS or manual start changes</span>
+                <span class="small-chip">Use the visited toggle to mark trees you have completed</span>
               </div>
-              <button class="primary-button" id="allow-location-btn" type="button">
-                Enable Location
-              </button>
+            </div> 
+          </details>
+
+          <section class="panel tree-panel" id="tree-panel">
+            <h2>Selected Tree</h2>
+            <div id="tree-detail" class="tree-detail">
+              <p class="empty-state">Select a tree marker to view details.</p>
             </div>
           </section>
 
-          <section class="panel-card controls-card">
-            <div class="section-header">
-              <h2>Controls</h2>
-              <span class="section-badge" id="tracking-badge">Tracking off</span>
+          <section class="panel stats">
+            <div class="panel-head compact-head">
+              <h2>Overview</h2>
+              <span class="small-chip" id="start-mode">Waiting</span>
             </div>
-
-            <div class="control-grid">
-              <button class="primary-button" id="start-tour-btn" type="button">
-                Start Tour
-              </button>
-              <button class="secondary-button" id="stop-tracking-btn" type="button">
-                Stop Tracking
-              </button>
-            </div>
-
-            <dl class="meta-grid">
+            <dl class="metric-grid compact-metrics">
               <div>
-                <dt>Tour status</dt>
-                <dd id="tour-status">Waiting for data and location.</dd>
+                <dt>Trees</dt>
+                <dd id="tree-count">0</dd>
               </div>
               <div>
-                <dt>Last GPS fix</dt>
-                <dd id="gps-status">No live location yet.</dd>
+                <dt>Seen</dt>
+                <dd id="arrived-count">0</dd>
+              </div>
+              <div>
+                <dt>Distance</dt>
+                <dd id="route-distance">-</dd>
+              </div>
+              <div>
+                <dt>Time</dt>
+                <dd id="route-time">-</dd>
               </div>
             </dl>
+            <p class="muted" id="gps-readout">No live GPS fix yet.</p>
+            <p class="error" id="error-text" hidden></p>
           </section>
 
-          <section class="panel-card route-card">
-            <div class="section-header">
-              <h2>Route Overview</h2>
-              <span class="section-badge" id="tree-count-badge">0 trees</span>
+          <section class="panel route-panel">
+            <div class="panel-head">
+              <h2>Route Stops</h2>
+              <span class="small-chip" id="route-count">0 stops</span>
             </div>
-
-            <div class="route-metrics" id="route-metrics">
-              <article>
-                <span>Distance</span>
-                <strong id="route-distance">-</strong>
-              </article>
-              <article>
-                <span>Est. time</span>
-                <strong id="route-duration">-</strong>
-              </article>
-              <article>
-                <span>Stops</span>
-                <strong id="route-stop-count">-</strong>
-              </article>
-            </div>
-
             <div class="route-list-wrap">
-              <ol id="route-stop-list" class="route-list">
-                <li class="empty-state">Start a tour to see the optimized visit order.</li>
+              <ol id="route-list" class="route-list">
+                <li class="empty-state">Build the tour to see visit order.</li>
               </ol>
-            </div>
-          </section>
-
-          <section class="panel-card selected-tree-card">
-            <div class="section-header">
-              <h2>Selected Tree</h2>
-              <span class="section-badge">Details</span>
-            </div>
-
-            <div id="selected-tree-content" class="selected-tree-content">
-              <div class="empty-state-card">
-                <p>Select a marker or route stop to inspect a tree.</p>
-              </div>
             </div>
           </section>
         </aside>
@@ -146,24 +114,8 @@
 
     <script>
       if (window.location.protocol === "file:") {
-        const loadingMessage = document.getElementById("loading-message");
-        const errorBanner = document.getElementById("error-banner");
-        const statusPill = document.getElementById("app-status-pill");
-
-        if (loadingMessage) {
-          loadingMessage.textContent =
-            "Open this app through a local web server. Browsers block module loading, fetch(), and geolocation when launched directly from file://.";
-        }
-
-        if (errorBanner) {
-          errorBanner.textContent =
-            "Run a local server from the project root, then open /src/index.html through http://localhost.";
-          errorBanner.classList.remove("is-hidden");
-        }
-
-        if (statusPill) {
-          statusPill.textContent = "Server required";
-        }
+        document.body.innerHTML =
+          '<main class="file-warning"><h1>Local server required</h1><p>Open this app through http://localhost so fetch(), ES modules, and geolocation work correctly.</p></main>';
       }
     </script>
     <script
