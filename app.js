@@ -1,347 +1,374 @@
-import { attachTreeNodes, buildTour, buildWalkwayGraph, parseTreesCsv } from "./routing.js";
+import {
+  attachTreeNodes,
+  buildTour,
+  buildWalkwayGraph,
+  haversineDistance,
+  parseTreesCsv,
+} from "./routing.js";
 
-const DEFAULT_CENTER = { lat: -34.4062, lng: 150.8789 };
-const DEFAULT_ZOOM = 17;
+const DEFAULT_VIEW_ZOOM = 17;
+const DEFAULT_TRACKING_ZOOM = 20;
+const MIN_TRACKING_ZOOM = 15;
+const MAX_TRACKING_ZOOM = 22;
+const ARRIVAL_THRESHOLD_METERS = 18;
+const ROUTE_BASE_OPACITY = 0.92;
+
 const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 12000,
   maximumAge: 12000,
+  timeout: 15000,
 };
-const ARRIVAL_THRESHOLD_METERS = 18;
-const VIBRATION_MAX_DISTANCE_METERS = 25;
+
+const APPROACH_VIBRATION_BUCKETS = [
+  { maxDistance: 18, pattern: [220, 80, 220] },
+  { maxDistance: 40, pattern: [120, 60, 120] },
+  { maxDistance: 75, pattern: [70] },
+];
 
 const state = {
   map: null,
-  trees: [],
   graph: null,
-  tour: null,
-  selectedTreeId: null,
-  arrivedTreeIds: new Set(),
-  visitedTreeIds: new Set(),
-  currentPosition: null,
-  currentHeading: null,
-  manualStart: null,
-  startSource: null,
-  pendingAutoBuild: false,
-  pendingLocateCenter: false,
-  watchId: null,
-  treeMarkers: new Map(),
-  selectedLabelMarker: null,
+  trees: [],
+  treeLayer: null,
+  walkwayLayer: null,
+  routeLayer: null,
   userMarker: null,
   userAccuracyCircle: null,
-  startMarker: null,
-  routeLayer: null,
-  walkwayLayer: null,
-  lastVibrationAt: 0,
+  manualStartMarker: null,
+  homeBounds: null,
+  currentPosition: null,
+  watchId: null,
+  pendingGpsRouteBuild: false,
+  shouldCenterOnNextFix: false,
+  startMode: null,
+  startPosition: null,
+  tour: null,
+  routeIndexByTreeId: new Map(),
+  treeMarkers: new Map(),
+  selectedTreeId: null,
+  visitedTreeIds: new Set(),
+  arrivedTreeIds: new Set(),
+  activePanel: "tour",
+  isTourCollapsed: false,
+  mapControlsOpen: window.innerWidth >= 768,
+  lastApproachVibrationKey: "",
 };
 
 const elements = {
-  statusChip: document.querySelector("#status-chip"),
-  treeCount: document.querySelector("#tree-count"),
-  routeDistance: document.querySelector("#route-distance"),
-  routeTime: document.querySelector("#route-time"),
-  routeCount: document.querySelector("#route-count"),
-  nextTreeName: document.querySelector("#next-tree-name"),
-  nextTreeDistance: document.querySelector("#next-tree-distance"),
-  gpsReadout: document.querySelector("#gps-readout"),
-  errorText: document.querySelector("#error-text"),
-  routeList: document.querySelector("#route-list"),
-  treeDetail: document.querySelector("#tree-detail"),
-  sidebar: document.querySelector(".sidebar"),
-  tourPanel: document.querySelector("#tour-panel"),
-  treePanel: document.querySelector("#tree-panel"),
-  arrivedCount: document.querySelector("#arrived-count"),
+  mapPanel: document.querySelector(".map-panel"),
   mapControlGroup: document.querySelector("#map-control-group"),
   mapControlsToggle: document.querySelector("#map-controls-toggle"),
   homeButton: document.querySelector("#home-btn"),
   locateButton: document.querySelector("#locate-btn"),
   resetVisitedButton: document.querySelector("#reset-visited-btn"),
-  resetVisitedInlineButton: document.querySelector("#reset-visited-inline-btn"),
   zoomInButton: document.querySelector("#zoom-in-btn"),
   zoomOutButton: document.querySelector("#zoom-out-btn"),
+  tourPanel: document.querySelector("#tour-panel"),
+  treePanel: document.querySelector("#tree-panel"),
+  treePanelBackButton: document.querySelector("#tree-panel-back-btn"),
+  treeDetail: document.querySelector("#tree-detail"),
+  tourRestoreButton: document.querySelector("#tour-restore-btn"),
+  tourCollapseButton: document.querySelector("#tour-collapse-btn"),
+  resetVisitedInlineButton: document.querySelector("#reset-visited-inline-btn"),
+  statusChip: document.querySelector("#status-chip"),
+  nextTreeName: document.querySelector("#next-tree-name"),
+  nextTreeDistance: document.querySelector("#next-tree-distance"),
+  treeCount: document.querySelector("#tree-count"),
+  arrivedCount: document.querySelector("#arrived-count"),
+  routeDistance: document.querySelector("#route-distance"),
+  routeTime: document.querySelector("#route-time"),
+  gpsReadout: document.querySelector("#gps-readout"),
+  errorText: document.querySelector("#error-text"),
+  routeCount: document.querySelector("#route-count"),
+  routeList: document.querySelector("#route-list"),
+  lightbox: document.querySelector("#image-lightbox"),
+  lightboxImage: document.querySelector("#image-lightbox-image"),
+  lightboxTitle: document.querySelector("#image-lightbox-title"),
+  lightboxBackdrop: document.querySelector("#image-lightbox-close"),
+  lightboxDismiss: document.querySelector("#image-lightbox-dismiss"),
 };
 
 init().catch((error) => {
   console.error(error);
-  showError(error.message || "App startup failed.");
+  showError(error.message || "The app could not finish loading.");
   setStatus("Error");
-  setButtonsDisabled(false);
 });
 
 async function init() {
+  if (window.location.protocol === "file:") {
+    return;
+  }
+
   bindUi();
-  setButtonsDisabled(true);
+  syncMapControls();
+  showTourPanel();
+  renderSelectedTreePlaceholder();
+  updateRouteMetrics();
+  updateTreeCount();
+  updateNextTreeGuide();
+  setGpsReadout("Use Locate Me to start from GPS, or tap the map to choose a manual start.");
   setStatus("Loading");
 
-  const [treesCsv, pathwaysGeojson] = await Promise.all([
-    fetchText("./data/trees.csv", "Could not load tree CSV."),
-    fetchJson("./data/pathways.geojson", "Could not load pathway GeoJSON."),
+  const [treesCsvText, pathwaysGeojson] = await Promise.all([
+    fetchText("./data/trees.csv", "Unable to load tree CSV data."),
+    fetchJson("./data/pathways.geojson", "Unable to load pathway GeoJSON data."),
   ]);
 
-  const trees = parseTreesCsv(treesCsv);
   const graph = buildWalkwayGraph(pathwaysGeojson);
-  const routedTrees = attachTreeNodes(trees, graph);
+  const trees = attachTreeNodes(parseTreesCsv(treesCsvText), graph);
 
-  state.trees = routedTrees;
   state.graph = graph;
+  state.trees = trees;
 
-  createMap(getTreeCenter(routedTrees));
-  renderWalkways();
-  renderTrees();
-  renderTreeCount();
+  createMap(getInitialCenter(trees));
+  renderWalkwayNetwork();
+  renderTreeMarkers();
+  state.homeBounds = buildHomeBounds();
+  fitHomeView(false);
+
+  updateTreeCount();
+  updateRouteList();
   setStatus("Ready");
-  setButtonsDisabled(false);
-  showTourPanel();
-  startLocationWatch();
 }
 
 function bindUi() {
   elements.mapControlsToggle.addEventListener("click", () => {
-    const isOpen = elements.mapControlGroup.classList.toggle("is-open");
-    elements.mapControlsToggle.setAttribute("aria-expanded", String(isOpen));
-  });
-
-  elements.locateButton.addEventListener("click", () => {
-    state.startSource = "gps";
-    state.pendingAutoBuild = true;
-    state.pendingLocateCenter = true;
-    renderStartMarker();
-
-    if (state.currentPosition) {
-      setStatus("GPS Live");
-      focusMapOnPoint([state.currentPosition.lat, state.currentPosition.lng], { zoom: 18, duration: 0.8 });
-      buildAndRenderTour();
-    } else {
-      setStatus("Locating");
-    }
-
-    startLocationWatch(true);
+    state.mapControlsOpen = !state.mapControlsOpen;
+    syncMapControls();
   });
 
   elements.homeButton.addEventListener("click", () => {
-    if (state.tour?.coordinates?.length) {
-      const bounds = L.latLngBounds(state.tour.coordinates.map(([lat, lng]) => [lat, lng]));
-      fitMapToBounds(bounds.pad(0.1), { duration: 1.5 });
-      return;
-    }
-
-    const bounds = L.latLngBounds(state.trees.map((tree) => [tree.latitude, tree.longitude]));
-    fitMapToBounds(bounds.pad(0.22), { duration: 0.8 });
+    fitHomeView(true);
   });
 
-  elements.resetVisitedButton.addEventListener("click", resetVisitedTrees);
-  elements.resetVisitedInlineButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  elements.locateButton.addEventListener("click", () => {
+    requestLiveLocation({ buildRoute: true, centerOnFix: true });
+  });
+
+  elements.resetVisitedButton.addEventListener("click", () => {
     resetVisitedTrees();
   });
-  elements.zoomInButton.addEventListener("click", () => state.map?.zoomIn());
-  elements.zoomOutButton.addEventListener("click", () => state.map?.zoomOut());
+
+  elements.resetVisitedInlineButton.addEventListener("click", () => {
+    resetVisitedTrees();
+  });
+
+  elements.tourCollapseButton.addEventListener("click", () => {
+    showTourPanel({ collapsed: true });
+  });
+
+  elements.zoomInButton.addEventListener("click", () => {
+    state.map?.zoomIn();
+  });
+
+  elements.zoomOutButton.addEventListener("click", () => {
+    state.map?.zoomOut();
+  });
+
+  elements.tourRestoreButton.addEventListener("click", () => {
+    showTourPanel({ collapsed: !state.isTourCollapsed });
+  });
+
+  elements.treePanelBackButton.addEventListener("click", () => {
+    showTourPanel();
+  });
+
+  elements.lightboxBackdrop.addEventListener("click", closeLightbox);
+  elements.lightboxDismiss.addEventListener("click", closeLightbox);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.lightbox.hidden) {
+      closeLightbox();
+    }
+  });
 }
 
 function createMap(center) {
   state.map = L.map("map", {
     zoomControl: false,
     preferCanvas: true,
-  }).setView([center.lat, center.lng], DEFAULT_ZOOM);
+    maxZoom: MAX_TRACKING_ZOOM,
+  }).setView([center.lat, center.lng], DEFAULT_VIEW_ZOOM);
+
+  state.map.attributionControl.setPrefix(false);
 
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 20,
-    subdomains: "abcd",
     attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+    subdomains: "abcd",
+    maxNativeZoom: 20,
+    maxZoom: MAX_TRACKING_ZOOM,
   }).addTo(state.map);
 
   state.map.on("click", (event) => {
-    setManualStart({ lat: event.latlng.lat, lng: event.latlng.lng });
+    handleManualStart(event.latlng);
   });
 }
 
-function renderWalkways() {
+function renderWalkwayNetwork() {
   if (state.walkwayLayer) {
     state.walkwayLayer.remove();
   }
 
-  state.walkwayLayer = L.layerGroup(
-    state.graph.walkwayLines.map((line) =>
-      L.polyline(line, {
-        color: "#7fa089",
-        weight: 3,
-        opacity: 0.55,
-      }),
-    ),
-  ).addTo(state.map);
+  state.walkwayLayer = L.polyline(state.graph.walkwayLines, {
+    color: "#859184",
+    weight: 2,
+    opacity: 0.42,
+    interactive: false,
+  }).addTo(state.map);
 }
 
-function renderTrees() {
-  const markers = state.trees.map((tree) => {
+function renderTreeMarkers() {
+  if (state.treeLayer) {
+    state.treeLayer.remove();
+  }
+
+  state.treeMarkers.clear();
+  const markers = [];
+
+  for (const tree of state.trees) {
     const marker = L.marker([tree.latitude, tree.longitude], {
-      icon: createTreeIcon(tree.id),
+      icon: createTreeMarkerIcon(tree.id),
+      keyboard: true,
     });
-    marker.on("click", () => selectTree(tree.id, true));
-    state.treeMarkers.set(tree.id, marker);
-    return marker;
-  });
 
-  L.layerGroup(markers).addTo(state.map);
+    marker.bindTooltip(tree.commonName, {
+      direction: "top",
+      offset: [0, -12],
+      className: "tree-name-label",
+    });
+
+    marker.on("click", () => {
+      selectTree(tree.id, { panToTree: false });
+    });
+
+    state.treeMarkers.set(tree.id, marker);
+    markers.push(marker);
+  }
+
+  state.treeLayer = L.layerGroup(markers).addTo(state.map);
 }
 
-function startLocationWatch(triggeredByUser = false) {
+function handleManualStart(latlng) {
+  clearError();
+  state.pendingGpsRouteBuild = false;
+
+  const start = { lat: latlng.lat, lng: latlng.lng };
+
+  state.startMode = "manual";
+  state.startPosition = start;
+  renderManualStartMarker(start);
+  buildRouteFromStart(start, "manual");
+
+  if (state.currentPosition) {
+    setGpsReadout(
+      `GPS live at ${formatCoordinates(state.currentPosition.lat, state.currentPosition.lng)}. Manual route start fixed at ${formatCoordinates(start.lat, start.lng)}.`,
+    );
+  } else {
+    setGpsReadout(`Manual start set at ${formatCoordinates(start.lat, start.lng)}. Tap elsewhere to rebuild the route.`);
+  }
+}
+
+function requestLiveLocation({ buildRoute = false, centerOnFix = false } = {}) {
   if (!("geolocation" in navigator)) {
-    setStatus("Manual Start");
-    showError("This browser does not support geolocation. Tap the map to choose a manual start.");
+    showError("Geolocation is unavailable in this browser. Tap the map to choose a manual start.");
+    setGpsReadout("Geolocation unavailable. Tap the map to choose a manual start.");
+    setStatus("Manual");
     return;
   }
 
   clearError();
+  state.pendingGpsRouteBuild = buildRoute;
+  state.shouldCenterOnNextFix = centerOnFix;
 
-  if (state.watchId !== null) {
+  if (state.watchId === null) {
+    setStatus("Locating");
+    setGpsReadout("Requesting a live GPS fix...");
+    state.watchId = navigator.geolocation.watchPosition(
+      handleLocationSuccess,
+      handleLocationError,
+      GEOLOCATION_OPTIONS,
+    );
     return;
   }
 
-  if (triggeredByUser) {
-    setStatus("Locating");
-  }
+  if (state.currentPosition) {
+    if (centerOnFix) {
+      centerOnCurrentLocation();
+      state.shouldCenterOnNextFix = false;
+    }
 
-  state.watchId = navigator.geolocation.watchPosition(
-    handleLocationSuccess,
-    handleLocationError,
-    GEOLOCATION_OPTIONS,
-  );
+    if (buildRoute) {
+      state.pendingGpsRouteBuild = false;
+      buildRouteFromStart(state.currentPosition, "gps");
+    }
+  }
 }
 
 function handleLocationSuccess(position) {
-  const previousPosition = state.currentPosition;
   state.currentPosition = {
     lat: position.coords.latitude,
     lng: position.coords.longitude,
     accuracy: position.coords.accuracy,
+    heading:
+      Number.isFinite(position.coords.heading) && position.coords.heading >= 0
+        ? position.coords.heading
+        : null,
+    timestamp: position.timestamp,
   };
-  state.currentHeading = getPreferredHeading(position.coords.heading, previousPosition, state.currentPosition, state.currentHeading);
 
-  if (!state.startSource) {
-    state.startSource = "gps";
+  updateUserLocationLayers();
+  setGpsReadout(buildGpsReadout(state.currentPosition));
+
+  if (state.shouldCenterOnNextFix) {
+    centerOnCurrentLocation();
+    state.shouldCenterOnNextFix = false;
   }
 
-  renderUserMarker();
-  renderStartMarker();
-  updateArrivals();
-  updateNextTreeGuidance();
-  setStatus(state.startSource === "manual" ? "Manual Start" : "GPS Live");
-  elements.gpsReadout.textContent =
-    `${state.currentPosition.lat.toFixed(5)}, ${state.currentPosition.lng.toFixed(5)} ` +
-    `| +/-${Math.round(state.currentPosition.accuracy)} m`;
-
-  if (state.pendingLocateCenter) {
-    state.pendingLocateCenter = false;
-    focusMapOnPoint([state.currentPosition.lat, state.currentPosition.lng], { zoom: 18, duration: 0.8 });
+  if (state.pendingGpsRouteBuild) {
+    state.pendingGpsRouteBuild = false;
+    buildRouteFromStart(state.currentPosition, "gps");
   }
 
-  if (state.startSource === "gps" && (state.pendingAutoBuild || !state.tour)) {
-    state.pendingAutoBuild = false;
-    buildAndRenderTour();
-  }
-
-  maybeVibrateForNextTree();
+  updateProgressFromCurrentPosition();
+  syncStatus();
 }
 
 function handleLocationError(error) {
-  stopLocationWatch();
-  state.pendingLocateCenter = false;
+  state.pendingGpsRouteBuild = false;
+  state.shouldCenterOnNextFix = false;
 
-  if (state.manualStart) {
-    state.startSource = "manual";
-  } else if (state.startSource === "gps") {
-    state.startSource = null;
-  }
+  const denied = error.code === 1;
+  const timedOut = error.code === 3;
 
-  if (error.code === error.PERMISSION_DENIED) {
-    showError("Location access was denied. Manual start remains available.");
-  } else if (error.code === error.TIMEOUT) {
-    showError("Location timed out. You can retry or tap the map for a manual start.");
-  } else {
-    showError("Could not read your location. You can still build from a manual map start.");
-  }
-
-  setStatus("Manual Start");
-  elements.gpsReadout.textContent = "No live GPS fix yet.";
-}
-
-function setManualStart(position) {
-  state.manualStart = position;
-  state.startSource = "manual";
-  state.pendingAutoBuild = false;
-  renderStartMarker();
-  elements.gpsReadout.textContent = `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)} | map start`;
-  setStatus("Manual Start");
-  clearError();
-  buildAndRenderTour();
-}
-
-function renderUserMarker() {
-  if (!state.currentPosition) {
+  if (denied) {
+    stopWatchingLocation();
+    showError("Location permission was denied. Tap the map to choose a manual start.");
+    setGpsReadout("Location denied. Tap the map to choose a manual start.");
+    setStatus("Manual");
     return;
   }
 
-  const icon = createUserIcon();
-  const latLng = [state.currentPosition.lat, state.currentPosition.lng];
-
-  if (!state.userMarker) {
-    state.userMarker = L.marker(latLng, {
-      icon,
-      zIndexOffset: 1000,
-    }).addTo(state.map);
-  } else {
-    state.userMarker.setLatLng(latLng);
-    state.userMarker.setIcon(icon);
-  }
-
-  if (!state.userAccuracyCircle) {
-    state.userAccuracyCircle = L.circle(latLng, {
-      radius: state.currentPosition.accuracy,
-      color: "rgba(46, 127, 255, 0.22)",
-      weight: 1,
-      fillColor: "rgba(46, 127, 255, 0.16)",
-      fillOpacity: 1,
-      interactive: false,
-    }).addTo(state.map);
-  } else {
-    state.userAccuracyCircle.setLatLng(latLng);
-    state.userAccuracyCircle.setRadius(state.currentPosition.accuracy);
-  }
-}
-
-function renderStartMarker() {
-  const start = getActiveStart();
-
-  if (!start) {
-    if (state.startMarker) {
-      state.startMarker.remove();
-      state.startMarker = null;
-    }
-
+  if (timedOut) {
+    showError("Location lookup timed out. Tap the map to choose a manual start, or try Locate Me again.");
+    setGpsReadout("Location timed out. Tap the map for a manual start.");
+    syncStatus();
     return;
   }
 
-  if (!state.startMarker) {
-    state.startMarker = L.circleMarker([start.lat, start.lng], {
-      radius: 8,
-      color: "#154e36",
-      weight: 2,
-      fillColor: "#ffffff",
-      fillOpacity: 1,
-    }).addTo(state.map);
-  } else {
-    state.startMarker.setLatLng([start.lat, start.lng]);
+  showError("A live location fix could not be retrieved. Tap the map to choose a manual start.");
+  setGpsReadout("Location unavailable. Tap the map to choose a manual start.");
+  syncStatus();
+}
+
+function stopWatchingLocation() {
+  if (state.watchId !== null) {
+    navigator.geolocation.clearWatch(state.watchId);
+    state.watchId = null;
   }
 }
 
-function buildAndRenderTour() {
-  clearError();
-
-  const start = getActiveStart();
-
-  if (!start) {
-    showError("Choose a start point from GPS or tap the map for a manual start.");
+function buildRouteFromStart(start, mode) {
+  if (!state.graph || !state.trees.length) {
     return;
   }
 
@@ -353,25 +380,30 @@ function buildAndRenderTour() {
     });
 
     state.tour = tour;
-    state.selectedTreeId = null;
-    state.arrivedTreeIds = new Set();
-    state.visitedTreeIds = new Set();
-    updateSelectedTreeLabel(null);
-    renderRoute();
-    renderTourSummary();
-    updateArrivedCount();
-    updateTreeMarkerStates();
-    updateArrivals();
-    updateNextTreeGuidance();
-    renderSelectedTreeEmptyState();
-    showTourPanel();
+    state.startMode = mode;
+    state.startPosition = { lat: start.lat, lng: start.lng };
+    state.routeIndexByTreeId = new Map(
+      tour.orderedStops.map((tree, index) => [tree.id, index + 1]),
+    );
+    clearError();
 
-    const bounds = L.latLngBounds(tour.coordinates.map(([lat, lng]) => [lat, lng]));
-    fitMapToBounds(bounds.pad(0.08), { duration: 0.8 });
-    setStatus("Route Ready");
+    if (mode === "gps" && state.manualStartMarker) {
+      state.manualStartMarker.remove();
+      state.manualStartMarker = null;
+    }
+
+    renderRoute();
+    updateRouteMetrics();
+    updateRouteList();
+    updateNextTreeGuide();
+    rerenderSelectedTree();
+    syncStatus();
+    fitRouteBounds(true);
+    updateProgressFromCurrentPosition();
   } catch (error) {
     console.error(error);
-    showError(error.message || "Could not build the walking route.");
+    showError(error.message || "The walking route could not be built.");
+    setStatus("Error");
   }
 }
 
@@ -380,8 +412,12 @@ function renderRoute() {
     state.routeLayer.remove();
   }
 
+  if (!state.tour?.coordinates?.length) {
+    return;
+  }
+
   state.routeLayer = L.polyline(state.tour.coordinates, {
-    color: "#1d7a53",
+    color: "#1f7b55",
     weight: 5,
     opacity: getRouteOpacity(),
     lineCap: "round",
@@ -389,175 +425,662 @@ function renderRoute() {
   }).addTo(state.map);
 }
 
-function renderTourSummary() {
-  if (!state.tour) {
+function renderManualStartMarker(start) {
+  if (!state.map) {
     return;
   }
 
-  elements.routeDistance.textContent = formatDistance(state.tour.totalDistanceMeters);
-  elements.routeTime.textContent = `${state.tour.estimatedMinutes} min`;
-  elements.routeCount.textContent = `${state.tour.orderedStops.length} stops`;
-  elements.routeList.innerHTML = "";
-
-  const fragment = document.createDocumentFragment();
-
-  state.tour.orderedStops.forEach((tree, index) => {
-    const item = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "route-stop-row";
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "route-stop";
-    button.dataset.treeId = tree.id;
-    button.innerHTML = `<strong>${index + 1}. ${tree.commonName}</strong><span>${tree.scientificName}</span>`;
-    button.addEventListener("click", () => {
-      selectTree(tree.id, true);
-    });
-
-    row.append(button);
-    item.append(row);
-    fragment.append(item);
-  });
-
-  elements.routeList.append(fragment);
-  updateRouteSelection();
-  updateNextTreeGuidance();
+  if (!state.manualStartMarker) {
+    state.manualStartMarker = L.circleMarker([start.lat, start.lng], {
+      radius: 7,
+      color: "#d77724",
+      weight: 2,
+      fillColor: "#fff6ea",
+      fillOpacity: 0.9,
+    }).addTo(state.map);
+  } else {
+    state.manualStartMarker.setLatLng([start.lat, start.lng]);
+  }
 }
 
-function selectTree(treeId, openPopup) {
-  state.selectedTreeId = treeId;
-  const tree = state.trees.find((item) => item.id === treeId);
+function updateUserLocationLayers() {
+  if (!state.map || !state.currentPosition) {
+    return;
+  }
+
+  const latlng = [state.currentPosition.lat, state.currentPosition.lng];
+  const userIcon = L.divIcon({
+    className: "",
+    html: buildUserMarkerHtml(state.currentPosition.heading),
+    iconSize: [54, 54],
+    iconAnchor: [27, 27],
+  });
+
+  if (!state.userMarker) {
+    state.userMarker = L.marker(latlng, {
+      icon: userIcon,
+      zIndexOffset: 1000,
+    }).addTo(state.map);
+  } else {
+    state.userMarker.setLatLng(latlng);
+    state.userMarker.setIcon(userIcon);
+  }
+
+  if (!state.userAccuracyCircle) {
+    state.userAccuracyCircle = L.circle(latlng, {
+      radius: state.currentPosition.accuracy,
+      color: "#2e7fff",
+      weight: 1,
+      opacity: 0.55,
+      fillColor: "#2e7fff",
+      fillOpacity: 0.09,
+      interactive: false,
+    }).addTo(state.map);
+  } else {
+    state.userAccuracyCircle.setLatLng(latlng);
+    state.userAccuracyCircle.setRadius(state.currentPosition.accuracy);
+  }
+}
+
+function selectTree(treeId, { panToTree = true } = {}) {
+  const tree = getTreeById(treeId);
 
   if (!tree) {
     return;
   }
 
-  elements.treeDetail.innerHTML = "";
-  elements.treeDetail.append(buildTreeCard(tree, false));
-  showSelectedTreePanel();
+  state.selectedTreeId = treeId;
   updateTreeMarkerStates();
-  updateRouteSelection();
-  updateSelectedTreeLabel(tree);
+  updateRouteList();
+  renderSelectedTree(tree);
+  showTreePanel();
 
-  if (openPopup) {
-    focusMapOnPoint([tree.latitude, tree.longitude], { zoom: 18, duration: 0.7 });
+  if (panToTree) {
+    const targetZoom = clamp(state.map.getZoom(), 17, 19);
+    state.map.flyTo([tree.latitude, tree.longitude], targetZoom, {
+      animate: true,
+      duration: 0.7,
+    });
   }
 }
 
-function updateRouteSelection() {
-  elements.routeList.querySelectorAll(".route-stop").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.treeId === state.selectedTreeId);
-    button.classList.toggle("is-arrived", state.arrivedTreeIds.has(button.dataset.treeId));
-    button.classList.toggle("is-visited", state.visitedTreeIds.has(button.dataset.treeId));
-  });
-}
+function renderSelectedTree(tree) {
+  elements.treeDetail.innerHTML = "";
 
-function buildTreeCard(tree, compact) {
   const card = document.createElement("article");
   card.className = "tree-card";
-  card.classList.toggle("is-selected", tree.id === state.selectedTreeId);
-  card.classList.toggle("is-arrived", state.arrivedTreeIds.has(tree.id));
-  card.classList.toggle("is-visited", state.visitedTreeIds.has(tree.id));
 
   const media = document.createElement("div");
   media.className = "tree-card-media";
+  media.style.minHeight = "10rem";
+
   const mediaTop = document.createElement("div");
   mediaTop.className = "tree-card-media-top";
-  mediaTop.innerHTML = `
-    <span class="tree-card-badge is-selected">Selected</span>
-    <button type="button" class="tree-back-link tree-back-link-overlay" data-tree-action="back">
-      <span aria-hidden="true">&#8592;</span>
-      <span>Go back to tour</span>
-    </button>
-  `;
 
-  const ribbon = document.createElement("div");
-  ribbon.className = "tree-card-ribbon";
+  const selectedBadge = document.createElement("span");
+  selectedBadge.className = "tree-card-badge is-selected";
+  selectedBadge.textContent = "Selected";
 
-  if (state.arrivedTreeIds.has(tree.id)) {
-    ribbon.append(buildTreeBadge("Arrived", "is-arrived"));
+  const mediaActions = document.createElement("div");
+  mediaActions.className = "tree-media-actions";
+
+  if (tree.photoFilename) {
+    const image = document.createElement("img");
+    image.src = buildImagePath(tree.photoFilename);
+    image.alt = tree.commonName;
+    image.loading = "lazy";
+    media.classList.add("is-loading");
+
+    const viewImageButton = document.createElement("button");
+    viewImageButton.type = "button";
+    viewImageButton.className = "tree-expand-action";
+    viewImageButton.title = "Expand image";
+    viewImageButton.setAttribute("aria-label", "Expand image");
+    viewImageButton.innerHTML =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6h-2V7.4l-4.3 4.3-1.4-1.4L16.6 6H14zm-4 16H4v-6h2v2.6l4.3-4.3 1.4 1.4L7.4 18H10z"/></svg>';
+    viewImageButton.addEventListener("click", () => {
+      openLightbox(tree);
+    });
+
+    mediaActions.append(viewImageButton);
+
+    image.addEventListener("load", () => {
+      media.classList.remove("is-loading");
+      media.classList.add("is-ready");
+      media.style.minHeight = "";
+    });
+
+    image.addEventListener("error", () => {
+      media.classList.remove("is-loading");
+      viewImageButton.remove();
+      image.remove();
+    });
+
+    media.append(image);
   }
 
-  if (state.visitedTreeIds.has(tree.id)) {
-    ribbon.append(buildTreeBadge("Visited", "is-visited"));
-  }
-
-  const image = document.createElement("img");
-  image.src = encodeURI(`./images/${tree.photoFilename}`);
-  image.alt = tree.commonName;
-  image.loading = "lazy";
-
-  image.addEventListener("error", () => {
-    image.remove();
-  });
+  mediaTop.append(selectedBadge, mediaActions);
+  media.append(mediaTop);
 
   const body = document.createElement("div");
   body.className = "tree-body";
-  const statusText = state.visitedTreeIds.has(tree.id)
-    ? "Visited"
-    : state.arrivedTreeIds.has(tree.id)
-      ? "Arrived"
-      : "Active stop";
-  const coordinatesLabel = `${tree.latitude.toFixed(5)}, ${tree.longitude.toFixed(5)}`;
-  body.innerHTML = `
-    <div class="tree-header">
-      <div class="tree-title-wrap">
-        <p class="tree-overline">Selected tree</p>
-        <h3>${tree.commonName}</h3>
-        <p class="tree-subtitle">${tree.scientificName}</p>
-      </div>
-      <span class="tree-route-pill">${getTreeRouteIndex(tree.id)}</span>
-    </div>
-    <div class="tree-inline-meta">
-      <span>${tree.family}</span>
-      <span>${statusText}</span>
-      <span>${coordinatesLabel}</span>
-    </div>
-    <div class="tree-actions">
-      <button type="button" class="tree-action ${state.visitedTreeIds.has(tree.id) ? "is-on" : ""}" data-tree-action="visit">
-        ${state.visitedTreeIds.has(tree.id) ? "Visited" : "Mark Visited"}
-      </button>
-    </div>
-  `;
 
-  body.querySelector('[data-tree-action="back"]')?.addEventListener("click", () => {
-    showTourPanel();
-  });
-  body.querySelector('[data-tree-action="visit"]')?.addEventListener("click", () => {
-    toggleVisited(tree.id);
+  const header = document.createElement("div");
+  header.className = "tree-header";
+
+  const titleWrap = document.createElement("div");
+  titleWrap.className = "tree-title-wrap";
+
+  const heading = document.createElement("h3");
+  heading.textContent = tree.commonName;
+
+  const scientificLine = document.createElement("p");
+  scientificLine.className = "tree-scientific-line";
+  scientificLine.textContent = tree.scientificName || "Scientific name unavailable";
+
+  titleWrap.append(heading, scientificLine);
+
+  const visitedButton = document.createElement("button");
+  visitedButton.type = "button";
+  visitedButton.className = "tree-action tree-action-inline";
+
+  if (state.visitedTreeIds.has(tree.id)) {
+    visitedButton.classList.add("is-on");
+    visitedButton.textContent = "Reset Visited";
+  } else {
+    visitedButton.textContent = "Mark Visited";
+  }
+
+  visitedButton.addEventListener("click", () => {
+    toggleVisitedTree(tree.id);
   });
 
-  media.append(mediaTop, image, ribbon);
+  header.append(titleWrap, visitedButton);
+
+  const metaStack = document.createElement("div");
+  metaStack.className = "tree-meta-stack";
+  metaStack.append(
+    buildMetaItem("Family", tree.family || "Unavailable"),
+    buildMetaItem(
+      "Route Index",
+      state.routeIndexByTreeId.has(tree.id)
+        ? `Stop ${state.routeIndexByTreeId.get(tree.id)}`
+        : "Not on current route",
+    ),
+  );
+
+  const locationLine = document.createElement("p");
+  locationLine.className = "tree-location-line";
+
+  const locationLabel = document.createElement("span");
+  locationLabel.textContent = "Location";
+
+  const locationValue = document.createElement("strong");
+  const coordinateLabel = formatCoordinates(tree.latitude, tree.longitude);
+  const distanceFromUser = state.currentPosition
+    ? `${Math.max(1, Math.round(haversineDistance(state.currentPosition, { lat: tree.latitude, lng: tree.longitude })))}m away`
+    : null;
+  locationValue.textContent = coordinateLabel;
+
+  if (distanceFromUser) {
+    const distanceText = document.createElement("em");
+    distanceText.textContent = ` (${distanceFromUser})`;
+    locationValue.append(distanceText);
+  }
+
+  locationLine.append(locationLabel, locationValue);
+
+  body.append(header, metaStack, locationLine);
   card.append(media, body);
-  return card;
+
+  elements.treeDetail.append(card);
 }
 
-function renderTreeCount() {
+function renderSelectedTreePlaceholder() {
+  elements.treeDetail.innerHTML =
+    '<p class="empty-state">Select a tree marker or route stop to view details.</p>';
+}
+
+function rerenderSelectedTree() {
+  const selectedTree = getTreeById(state.selectedTreeId);
+
+  if (selectedTree) {
+    renderSelectedTree(selectedTree);
+  }
+}
+
+function updateRouteList() {
+  if (!state.tour?.orderedStops?.length) {
+    elements.routeList.innerHTML =
+      '<li class="empty-state">Use Locate Me or tap the map to generate the tour.</li>';
+    elements.routeCount.textContent = "0 stops";
+    return;
+  }
+
+  elements.routeList.innerHTML = "";
+  elements.routeCount.textContent = formatStopCount(state.tour.orderedStops.length);
+
+  const fragment = document.createDocumentFragment();
+
+  state.tour.orderedStops.forEach((tree, index) => {
+    const item = document.createElement("li");
+    item.className = "route-stop-row";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "route-stop";
+
+    if (tree.id === state.selectedTreeId) {
+      button.classList.add("is-active");
+    }
+
+    if (state.arrivedTreeIds.has(tree.id)) {
+      button.classList.add("is-arrived");
+    } else if (state.visitedTreeIds.has(tree.id)) {
+      button.classList.add("is-visited");
+    }
+
+    const title = document.createElement("strong");
+    title.textContent = `${index + 1}. ${tree.commonName}`;
+
+    const subtitle = document.createElement("span");
+    subtitle.textContent = [tree.scientificName, tree.family].filter(Boolean).join(" | ");
+
+    button.append(title, subtitle);
+    button.addEventListener("click", () => {
+      selectTree(tree.id);
+    });
+
+    item.append(button);
+    fragment.append(item);
+  });
+
+  elements.routeList.append(fragment);
+}
+
+function updateRouteMetrics() {
   elements.treeCount.textContent = String(state.trees.length);
-  updateArrivedCount();
-}
+  elements.arrivedCount.textContent = String(state.visitedTreeIds.size);
 
-function renderSelectedTreeEmptyState() {
-  elements.treeDetail.innerHTML = '<p class="empty-state">Select a tree marker or route stop to view details.</p>';
-}
-
-function getActiveStart() {
-  if (state.startSource === "manual") {
-    return state.manualStart;
+  if (!state.tour) {
+    elements.routeDistance.textContent = "-";
+    elements.routeTime.textContent = "-";
+    elements.routeCount.textContent = "0 stops";
+    return;
   }
 
-  if (state.startSource === "gps") {
-    return state.currentPosition;
+  elements.routeDistance.textContent = formatDistance(state.tour.totalDistanceMeters);
+  elements.routeTime.textContent = `${state.tour.estimatedMinutes} min`;
+  elements.routeCount.textContent = formatStopCount(state.tour.orderedStops.length);
+
+  if (state.routeLayer) {
+    state.routeLayer.setStyle({ opacity: getRouteOpacity() });
+  }
+}
+
+function updateTreeCount() {
+  elements.treeCount.textContent = String(state.trees.length);
+}
+
+function updateNextTreeGuide() {
+  if (!state.tour) {
+    elements.nextTreeName.textContent = "Waiting for route";
+    elements.nextTreeDistance.textContent = "-";
+    return;
   }
 
-  return state.currentPosition ?? state.manualStart;
+  const nextTree = getNextPendingTree();
+
+  if (!nextTree) {
+    elements.nextTreeName.textContent = "Tour complete";
+    elements.nextTreeDistance.textContent = "-";
+    return;
+  }
+
+  elements.nextTreeName.textContent = nextTree.commonName;
+
+  if (state.currentPosition) {
+    const distance = haversineDistance(state.currentPosition, {
+      lat: nextTree.latitude,
+      lng: nextTree.longitude,
+    });
+    elements.nextTreeDistance.textContent = formatDistance(distance);
+    return;
+  }
+
+  if (state.startPosition) {
+    const distance = haversineDistance(state.startPosition, {
+      lat: nextTree.latitude,
+      lng: nextTree.longitude,
+    });
+    elements.nextTreeDistance.textContent = formatDistance(distance);
+    return;
+  }
+
+  elements.nextTreeDistance.textContent = "-";
+}
+
+function updateProgressFromCurrentPosition() {
+  if (!state.currentPosition || !state.tour?.orderedStops?.length) {
+    updateNextTreeGuide();
+    return;
+  }
+
+  const nextTree = getNextPendingTree();
+
+  if (!nextTree) {
+    state.lastApproachVibrationKey = "";
+    updateNextTreeGuide();
+    syncStatus();
+    return;
+  }
+
+  const distance = haversineDistance(state.currentPosition, {
+    lat: nextTree.latitude,
+    lng: nextTree.longitude,
+  });
+
+  if (distance <= ARRIVAL_THRESHOLD_METERS && !state.visitedTreeIds.has(nextTree.id)) {
+    markTreeArrived(nextTree.id);
+    return;
+  }
+
+  maybeVibrateForApproach(nextTree.id, distance);
+  updateNextTreeGuide();
+}
+
+function markTreeArrived(treeId) {
+  state.visitedTreeIds.add(treeId);
+  state.arrivedTreeIds.add(treeId);
+  state.lastApproachVibrationKey = "";
+
+  if ("vibrate" in navigator) {
+    navigator.vibrate([220, 80, 220]);
+  }
+
+  updateAfterProgressChange();
+}
+
+function toggleVisitedTree(treeId) {
+  if (state.visitedTreeIds.has(treeId)) {
+    state.visitedTreeIds.delete(treeId);
+    state.arrivedTreeIds.delete(treeId);
+  } else {
+    state.visitedTreeIds.add(treeId);
+  }
+
+  state.lastApproachVibrationKey = "";
+  updateAfterProgressChange();
+}
+
+function resetVisitedTrees() {
+  state.visitedTreeIds.clear();
+  state.arrivedTreeIds.clear();
+  state.lastApproachVibrationKey = "";
+  updateAfterProgressChange();
+}
+
+function updateAfterProgressChange() {
+  updateRouteMetrics();
+  updateRouteList();
+  updateTreeMarkerStates();
+  updateNextTreeGuide();
+  rerenderSelectedTree();
+  syncStatus();
+}
+
+function updateTreeMarkerStates() {
+  for (const [treeId, marker] of state.treeMarkers) {
+    marker.setIcon(createTreeMarkerIcon(treeId));
+  }
+}
+
+function createTreeMarkerIcon(treeId) {
+  const classNames = ["tree-marker"];
+
+  if (treeId === state.selectedTreeId) {
+    classNames.push("is-selected");
+  } else if (state.arrivedTreeIds.has(treeId)) {
+    classNames.push("is-arrived");
+  } else if (state.visitedTreeIds.has(treeId)) {
+    classNames.push("is-visited");
+  }
+
+  return L.divIcon({
+    className: "",
+    html: `<span class="${classNames.join(" ")}"></span>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
+
+function maybeVibrateForApproach(treeId, distance) {
+  if (!("vibrate" in navigator)) {
+    return;
+  }
+
+  for (const bucket of APPROACH_VIBRATION_BUCKETS) {
+    if (distance <= bucket.maxDistance) {
+      const vibrationKey = `${treeId}:${bucket.maxDistance}`;
+
+      if (vibrationKey !== state.lastApproachVibrationKey) {
+        navigator.vibrate(bucket.pattern);
+        state.lastApproachVibrationKey = vibrationKey;
+      }
+
+      return;
+    }
+  }
+
+  state.lastApproachVibrationKey = "";
+}
+
+function showTourPanel({ collapsed = false } = {}) {
+  state.activePanel = "tour";
+  state.isTourCollapsed = collapsed;
+  syncPanels();
+}
+
+function showTreePanel() {
+  state.activePanel = "tree";
+  state.isTourCollapsed = false;
+  syncPanels();
+}
+
+function syncPanels() {
+  const showTree = state.activePanel === "tree";
+  const showTour = !showTree && !state.isTourCollapsed;
+  const isMobile = window.matchMedia("(max-width: 767px)").matches;
+  const showDesktopToggle = !showTree && !isMobile;
+  const showMobileRestore = !showTree && isMobile && state.isTourCollapsed;
+
+  elements.tourPanel.hidden = !showTour;
+  elements.treePanel.hidden = !showTree;
+  elements.tourCollapseButton.hidden = !showTour || !isMobile;
+  elements.tourRestoreButton.hidden = !(showDesktopToggle || showMobileRestore);
+  elements.tourRestoreButton.setAttribute("aria-expanded", String(showTour));
+  elements.tourRestoreButton.setAttribute("aria-label", showTour ? "Collapse tour panel" : "Open tour panel");
+  elements.tourRestoreButton.classList.toggle("is-desktop-open", showDesktopToggle && showTour);
+  elements.tourRestoreButton.classList.toggle("is-mobile-collapsed", showMobileRestore);
+
+  elements.mapPanel.classList.toggle(
+    "is-sidebar-hidden",
+    !showTree && state.isTourCollapsed,
+  );
+
+  window.setTimeout(() => {
+    state.map?.invalidateSize();
+  }, 0);
+}
+
+function syncMapControls() {
+  elements.mapControlGroup.classList.toggle("is-open", state.mapControlsOpen);
+  elements.mapControlsToggle.setAttribute("aria-expanded", String(state.mapControlsOpen));
+}
+
+function centerOnCurrentLocation() {
+  if (!state.currentPosition || !state.map) {
+    return;
+  }
+
+  const currentZoom = state.map.getZoom();
+  const targetZoom =
+    currentZoom < MIN_TRACKING_ZOOM || currentZoom > MAX_TRACKING_ZOOM
+      ? DEFAULT_TRACKING_ZOOM
+      : clamp(currentZoom, MIN_TRACKING_ZOOM, MAX_TRACKING_ZOOM);
+
+  state.map.flyTo([state.currentPosition.lat, state.currentPosition.lng], targetZoom, {
+    animate: true,
+    duration: 0.7,
+  });
+}
+
+function fitHomeView(animate) {
+  if (!state.map) {
+    return;
+  }
+
+  if (state.tour?.coordinates?.length) {
+    fitRouteBounds(animate);
+    return;
+  }
+
+  if (state.homeBounds?.isValid()) {
+    state.map.fitBounds(state.homeBounds.pad(0.05), {
+      animate,
+      duration: animate ? 0.75 : 0,
+      maxZoom: 18,
+    });
+  }
+}
+
+function fitRouteBounds(animate) {
+  if (!state.map || !state.tour?.coordinates?.length) {
+    return;
+  }
+
+  const bounds = L.latLngBounds(
+    state.tour.coordinates.map(([lat, lng]) => [lat, lng]),
+  );
+
+  if (state.currentPosition) {
+    bounds.extend([state.currentPosition.lat, state.currentPosition.lng]);
+  } else if (state.startPosition) {
+    bounds.extend([state.startPosition.lat, state.startPosition.lng]);
+  }
+
+  if (bounds.isValid()) {
+    state.map.fitBounds(bounds.pad(0.12), {
+      animate,
+      duration: animate ? 0.75 : 0,
+      maxZoom: 18,
+    });
+  }
+}
+
+function buildHomeBounds() {
+  const bounds = L.latLngBounds([]);
+
+  for (const tree of state.trees) {
+    bounds.extend([tree.latitude, tree.longitude]);
+  }
+
+  for (const line of state.graph.walkwayLines) {
+    for (const [lat, lng] of line) {
+      bounds.extend([lat, lng]);
+    }
+  }
+
+  return bounds;
+}
+
+function getNextPendingTree() {
+  return state.tour?.orderedStops.find((tree) => !state.visitedTreeIds.has(tree.id)) ?? null;
+}
+
+function getTreeById(treeId) {
+  return state.trees.find((tree) => tree.id === treeId) ?? null;
+}
+
+function describeTreeStatus(treeId) {
+  if (state.arrivedTreeIds.has(treeId)) {
+    return "Arrived";
+  }
+
+  if (state.visitedTreeIds.has(treeId)) {
+    return "Visited";
+  }
+
+  return "Pending";
+}
+
+function buildMetaItem(label, value) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "tree-meta-item";
+
+  const title = document.createElement("span");
+  title.textContent = label;
+
+  const content = document.createElement("strong");
+  content.textContent = value;
+
+  wrapper.append(title, content);
+  return wrapper;
+}
+
+function openLightbox(tree) {
+  if (!tree.photoFilename) {
+    return;
+  }
+
+  elements.lightboxTitle.textContent = tree.commonName;
+  elements.lightboxImage.alt = tree.commonName;
+  elements.lightboxImage.src = buildImagePath(tree.photoFilename);
+  elements.lightbox.hidden = false;
+  elements.lightbox.setAttribute("aria-hidden", "false");
+}
+
+function closeLightbox() {
+  elements.lightbox.hidden = true;
+  elements.lightbox.setAttribute("aria-hidden", "true");
+  elements.lightboxImage.removeAttribute("src");
 }
 
 function setStatus(text) {
-  if (elements.statusChip) {
-    elements.statusChip.textContent = text;
+  elements.statusChip.textContent = text;
+}
+
+function syncStatus() {
+  if (state.tour && !getNextPendingTree()) {
+    setStatus("Complete");
+    return;
   }
+
+  if (state.startMode === "manual" && state.tour) {
+    setStatus("Manual route");
+    return;
+  }
+
+  if (state.startMode === "gps" && state.tour && state.currentPosition) {
+    setStatus("GPS route");
+    return;
+  }
+
+  if (state.watchId !== null && !state.currentPosition) {
+    setStatus("Locating");
+    return;
+  }
+
+  if (state.currentPosition) {
+    setStatus("GPS live");
+    return;
+  }
+
+  setStatus("Ready");
+}
+
+function setGpsReadout(message) {
+  elements.gpsReadout.textContent = message;
 }
 
 function showError(message) {
@@ -570,28 +1093,55 @@ function clearError() {
   elements.errorText.textContent = "";
 }
 
-function setButtonsDisabled(disabled) {
-  elements.mapControlsToggle.disabled = disabled;
-  elements.homeButton.disabled = disabled;
-  elements.locateButton.disabled = disabled;
-  elements.resetVisitedButton.disabled = disabled;
-  elements.resetVisitedInlineButton.disabled = disabled;
-  elements.zoomInButton.disabled = disabled;
-  elements.zoomOutButton.disabled = disabled;
+function buildGpsReadout(position) {
+  const accuracy = Math.round(position.accuracy);
+  const headingText =
+    position.heading === null ? "" : ` | Heading ${Math.round(position.heading)}deg`;
+
+  return `${formatCoordinates(position.lat, position.lng)} | +/-${accuracy}m${headingText}`;
 }
 
-function stopLocationWatch() {
-  if (state.watchId !== null) {
-    navigator.geolocation.clearWatch(state.watchId);
-    state.watchId = null;
-  }
+function buildUserMarkerHtml(heading) {
+  const headingStyle =
+    heading === null
+      ? 'style="opacity:0;transform:translate(-50%, calc(-100% + 0.16rem)) rotate(0deg)"'
+      : `style="opacity:1;transform:translate(-50%, calc(-100% + 0.16rem)) rotate(${heading}deg)"`;
+
+  return `<span class="user-marker"><span class="user-heading-cone" ${headingStyle}></span><span class="user-dot"></span></span>`;
 }
 
-function getTreeCenter(trees) {
-  if (!trees.length) {
-    return DEFAULT_CENTER;
+function buildImagePath(filename) {
+  return encodeURI(`./images/${filename}`);
+}
+
+function getRouteOpacity() {
+  if (!state.tour?.orderedStops?.length) {
+    return ROUTE_BASE_OPACITY;
   }
 
+  const progress = state.visitedTreeIds.size / state.tour.orderedStops.length;
+  return clamp(ROUTE_BASE_OPACITY - progress * 0.58, 0.24, ROUTE_BASE_OPACITY);
+}
+
+function formatDistance(distanceMeters) {
+  return distanceMeters >= 1000
+    ? `${(distanceMeters / 1000).toFixed(2)} km`
+    : `${Math.round(distanceMeters)} m`;
+}
+
+function formatCoordinates(lat, lng) {
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function formatStopCount(count) {
+  return `${count} ${count === 1 ? "stop" : "stops"}`;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getInitialCenter(trees) {
   const totals = trees.reduce(
     (accumulator, tree) => {
       accumulator.lat += tree.latitude;
@@ -625,395 +1175,4 @@ async function fetchJson(url, errorMessage) {
   }
 
   return response.json();
-}
-
-function formatDistance(meters) {
-  return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
-}
-
-function createTreeIcon(treeId) {
-  const classes = ["tree-marker"];
-
-  if (state.visitedTreeIds.has(treeId)) {
-    classes.push("is-visited");
-  } else if (state.arrivedTreeIds.has(treeId)) {
-    classes.push("is-arrived");
-  } else if (state.selectedTreeId === treeId) {
-    classes.push("is-selected");
-  }
-
-  return L.divIcon({
-    className: "",
-    html: `<span class="${classes.join(" ")}"></span>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
-}
-
-function createUserIcon() {
-  return L.divIcon({
-    className: "",
-    html: `
-      <span class="user-marker">
-        <span class="user-heading-cone" style="transform: rotate(${state.currentHeading ?? 0}deg)"></span>
-        <span class="user-dot"></span>
-      </span>
-    `,
-    iconSize: [52, 52],
-    iconAnchor: [26, 26],
-  });
-}
-
-function updateTreeMarkerStates() {
-  state.treeMarkers.forEach((marker, treeId) => {
-    marker.setIcon(createTreeIcon(treeId));
-  });
-}
-
-function updateArrivals() {
-  if (!state.currentPosition || !state.tour) {
-    return;
-  }
-
-  let changed = false;
-
-  for (const tree of state.tour.orderedStops) {
-    if (state.arrivedTreeIds.has(tree.id)) {
-      continue;
-    }
-
-    const distance = distanceBetween(state.currentPosition, {
-      lat: tree.latitude,
-      lng: tree.longitude,
-    });
-
-    if (distance <= ARRIVAL_THRESHOLD_METERS) {
-      state.arrivedTreeIds.add(tree.id);
-      changed = true;
-    }
-  }
-
-  if (changed) {
-    updateArrivedCount();
-    updateTreeMarkerStates();
-    updateRouteSelection();
-    updateRouteProgressAppearance();
-    updateNextTreeGuidance();
-
-    const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
-
-    if (selectedTree) {
-      elements.treeDetail.innerHTML = "";
-      elements.treeDetail.append(buildTreeCard(selectedTree, false));
-    }
-  }
-}
-
-function updateArrivedCount() {
-  elements.arrivedCount.textContent = String(new Set([...state.arrivedTreeIds, ...state.visitedTreeIds]).size);
-}
-
-function scrollSelectedTreePanelIntoView() {
-  elements.treePanel?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
-}
-
-function showSelectedTreePanel() {
-  if (elements.tourPanel) {
-    elements.tourPanel.hidden = true;
-  }
-
-  if (elements.treePanel) {
-    elements.treePanel.hidden = false;
-  }
-
-  if (elements.treePanel && "open" in elements.treePanel) {
-    elements.treePanel.open = true;
-  }
-
-  scrollSelectedTreePanelIntoView();
-}
-
-function showTourPanel() {
-  if (elements.treePanel) {
-    elements.treePanel.hidden = true;
-  }
-
-  if (elements.tourPanel) {
-    elements.tourPanel.hidden = false;
-  }
-
-  if (elements.tourPanel && "open" in elements.tourPanel) {
-    elements.tourPanel.open = true;
-  }
-
-  elements.tourPanel?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
-}
-
-function fitMapToBounds(bounds, options = {}) {
-  const padding = getViewportPadding();
-  state.map.fitBounds(bounds, {
-    animate: true,
-    duration: options.duration ?? 0.8,
-    paddingTopLeft: [padding.left, padding.top],
-    paddingBottomRight: [padding.right, padding.bottom],
-  });
-}
-
-function focusMapOnPoint(latLng, options = {}) {
-  const zoom = options.zoom ?? state.map.getZoom();
-  const targetCenter = getAdjustedMapCenter(latLng, zoom);
-  state.map.flyTo(targetCenter, zoom, { duration: options.duration ?? 0.8 });
-}
-
-function getAdjustedMapCenter(latLng, zoom) {
-  const padding = getViewportPadding();
-  const size = state.map.getSize();
-  const targetPoint = state.map.project(L.latLng(latLng), zoom);
-  const offset = L.point((padding.right - padding.left) / 2, (padding.bottom - padding.top) / 2);
-  const centerPoint = targetPoint.add(offset);
-  return state.map.unproject(centerPoint, zoom);
-}
-
-function getViewportPadding() {
-  const sidebarRect = elements.sidebar?.getBoundingClientRect();
-  const controlsRect = elements.mapControlGroup?.getBoundingClientRect();
-  const isMobile = window.matchMedia("(max-width: 767px)").matches;
-
-  if (!isMobile) {
-    return {
-      left: 18,
-      top: 18,
-      right: 18,
-      bottom: 18,
-    };
-  }
-
-  return {
-    left: Math.round((controlsRect?.width ?? 48) + 18),
-    top: 18,
-    right: isMobile ? 18 : Math.round((sidebarRect?.width ?? 0) + 18),
-    bottom: Math.round((sidebarRect?.height ?? 0) + 18),
-  };
-}
-
-function distanceBetween(from, to) {
-  const earthRadius = 6371000;
-  const dLat = toRadians(to.lat - from.lat);
-  const dLng = toRadians(to.lng - from.lng);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRadians(from.lat)) *
-      Math.cos(toRadians(to.lat)) *
-      Math.sin(dLng / 2) ** 2;
-
-  return 2 * earthRadius * Math.asin(Math.sqrt(a));
-}
-
-function toRadians(value) {
-  return (value * Math.PI) / 180;
-}
-
-function updateNextTreeGuidance() {
-  const nextTree = getNextPendingTree();
-
-  if (!nextTree) {
-    elements.nextTreeName.textContent = "Tour complete";
-    elements.nextTreeDistance.textContent = "-";
-    return;
-  }
-
-  elements.nextTreeName.textContent = nextTree.commonName;
-
-  if (!state.currentPosition) {
-    elements.nextTreeDistance.textContent = "Need GPS";
-    return;
-  }
-
-  const distance = distanceBetween(state.currentPosition, {
-    lat: nextTree.latitude,
-    lng: nextTree.longitude,
-  });
-  elements.nextTreeDistance.textContent = formatDistance(distance);
-}
-
-function toggleVisited(treeId) {
-  if (state.visitedTreeIds.has(treeId)) {
-    state.visitedTreeIds.delete(treeId);
-  } else {
-    state.visitedTreeIds.add(treeId);
-  }
-
-  updateTreeMarkerStates();
-  updateRouteSelection();
-  updateRouteProgressAppearance();
-
-  const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
-
-  if (selectedTree) {
-    elements.treeDetail.innerHTML = "";
-    elements.treeDetail.append(buildTreeCard(selectedTree, false));
-  }
-
-  renderTourSummary();
-  updateNextTreeGuidance();
-}
-
-function resetVisitedTrees() {
-  state.visitedTreeIds = new Set();
-  updateTreeMarkerStates();
-  updateRouteSelection();
-  updateRouteProgressAppearance();
-  updateNextTreeGuidance();
-
-  const selectedTree = state.trees.find((tree) => tree.id === state.selectedTreeId);
-
-  if (selectedTree) {
-    elements.treeDetail.innerHTML = "";
-    elements.treeDetail.append(buildTreeCard(selectedTree, false));
-  }
-
-  renderTourSummary();
-}
-
-function updateSelectedTreeLabel(tree) {
-  if (!tree || !state.map) {
-    if (state.selectedLabelMarker) {
-      state.selectedLabelMarker.remove();
-      state.selectedLabelMarker = null;
-    }
-    return;
-  }
-
-  const labelIcon = L.divIcon({
-    className: "tree-name-label",
-    html: `<span>${tree.commonName}</span>`,
-    iconSize: null,
-    iconAnchor: [0, 36],
-  });
-
-  if (!state.selectedLabelMarker) {
-    state.selectedLabelMarker = L.marker([tree.latitude, tree.longitude], {
-      icon: labelIcon,
-      interactive: false,
-      zIndexOffset: 1100,
-    }).addTo(state.map);
-  } else {
-    state.selectedLabelMarker.setLatLng([tree.latitude, tree.longitude]);
-    state.selectedLabelMarker.setIcon(labelIcon);
-  }
-}
-
-function updateRouteProgressAppearance() {
-  if (state.routeLayer) {
-    state.routeLayer.setStyle({ opacity: getRouteOpacity() });
-  }
-}
-
-function getRouteOpacity() {
-  if (!state.tour?.orderedStops?.length) {
-    return 0.92;
-  }
-
-  const completed = new Set([...state.arrivedTreeIds, ...state.visitedTreeIds]).size;
-  const progress = completed / state.tour.orderedStops.length;
-  return Math.max(0.22, 0.92 - progress * 0.6);
-}
-
-function getNextPendingTree() {
-  return state.tour?.orderedStops?.find(
-    (tree) => !state.arrivedTreeIds.has(tree.id) && !state.visitedTreeIds.has(tree.id),
-  ) ?? null;
-}
-
-function getTreeRouteIndex(treeId) {
-  if (!state.tour?.orderedStops?.length) {
-    return "Not in route";
-  }
-
-  const index = state.tour.orderedStops.findIndex((tree) => tree.id === treeId);
-  return index >= 0 ? `${index + 1} of ${state.tour.orderedStops.length}` : "Not in route";
-}
-
-function buildTreeBadge(text, modifier) {
-  const badge = document.createElement("span");
-  badge.className = `tree-card-badge ${modifier}`;
-  badge.textContent = text;
-  return badge;
-}
-
-function getPreferredHeading(rawHeading, previousPosition, currentPosition, fallbackHeading) {
-  if (Number.isFinite(rawHeading)) {
-    return rawHeading;
-  }
-
-  if (previousPosition) {
-    const movement = distanceBetween(previousPosition, currentPosition);
-
-    if (movement >= 2) {
-      return bearingBetween(previousPosition, currentPosition);
-    }
-  }
-
-  return fallbackHeading;
-}
-
-function bearingBetween(from, to) {
-  const fromLat = toRadians(from.lat);
-  const toLat = toRadians(to.lat);
-  const deltaLng = toRadians(to.lng - from.lng);
-  const y = Math.sin(deltaLng) * Math.cos(toLat);
-  const x =
-    Math.cos(fromLat) * Math.sin(toLat) -
-    Math.sin(fromLat) * Math.cos(toLat) * Math.cos(deltaLng);
-
-  return (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
-}
-
-function maybeVibrateForNextTree() {
-  const nextTree = getNextPendingTree();
-
-  if (!nextTree || !state.currentPosition || typeof navigator.vibrate !== "function") {
-    return;
-  }
-
-  const distance = distanceBetween(state.currentPosition, {
-    lat: nextTree.latitude,
-    lng: nextTree.longitude,
-  });
-
-  if (distance > VIBRATION_MAX_DISTANCE_METERS) {
-    return;
-  }
-
-  const now = Date.now();
-  const { pattern, cooldown } = getVibrationProfile(distance);
-
-  if (now - state.lastVibrationAt < cooldown) {
-    return;
-  }
-
-  state.lastVibrationAt = now;
-  navigator.vibrate(pattern);
-}
-
-function getVibrationProfile(distance) {
-  if (distance <= 5) {
-    return { pattern: [220, 70, 220, 70, 220], cooldown: 900 };
-  }
-
-  if (distance <= 10) {
-    return { pattern: [180, 80, 180], cooldown: 1400 };
-  }
-
-  if (distance <= 18) {
-    return { pattern: [130, 90, 130], cooldown: 2200 };
-  }
-
-  return { pattern: [90], cooldown: 3600 };
 }

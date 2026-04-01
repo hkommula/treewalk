@@ -52,17 +52,25 @@
 
           <div id="map" class="map" role="application" aria-label="Tree walk map"></div>
 
+          <button type="button" class="tour-restore-btn" id="tour-restore-btn" hidden aria-label="Open tour panel" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>
+            <span>Tour</span>
+          </button>
+
           <aside class="sidebar">
-            <details class="panel tour-panel collapsible-panel" id="tour-panel" open>
-              <summary class="collapsible-summary">
+            <section class="panel tour-panel collapsible-panel" id="tour-panel">
+              <div class="collapsible-summary">
                 <div>
                   <h2>Tour</h2>
                 </div>
                 <div class="tour-head-actions">
                   <span class="small-chip status-chip" id="status-chip">Loading</span>
                   <button id="reset-visited-inline-btn" type="button" class="small-action" aria-label="Reset visited trees">Reset</button>
+                  <button id="tour-collapse-btn" type="button" class="small-action" aria-label="Collapse tour panel">
+                    <span aria-hidden="true">&#8964;</span>
+                  </button>
                 </div>
-              </summary>
+              </div>
               <div class="collapsible-body">
                 <div class="tour-summary-group">
                   <div class="next-guide">
@@ -111,21 +119,37 @@
                   </ol>
                 </div>
               </div>
-            </details>
+            </section>
 
-            <details class="panel tree-panel collapsible-panel" id="tree-panel" hidden>
-              <summary class="collapsible-summary">
+            <section class="panel tree-panel" id="tree-panel" hidden>
+              <div class="tree-panel-head">
                 <h2>Selected Tree</h2>
-              </summary>
-              <div class="collapsible-body">
+                <button type="button" class="small-action tree-panel-back" id="tree-panel-back-btn">
+                  <span aria-hidden="true">&#8592;</span>
+                  <span>Go back to tour</span>
+                </button>
+              </div>
+              <div class="tree-panel-body">
                 <div id="tree-detail" class="tree-detail">
                   <p class="empty-state">Select a tree marker or route stop to view details.</p>
                 </div>
               </div>
-            </details>
+            </section>
           </aside>
         </section>
       </main>
+    </div>
+    <div class="image-lightbox" id="image-lightbox" hidden aria-hidden="true">
+      <button type="button" class="image-lightbox-backdrop" id="image-lightbox-close" aria-label="Close image"></button>
+      <div class="image-lightbox-sheet" role="dialog" aria-modal="true" aria-labelledby="image-lightbox-title">
+        <div class="image-lightbox-head">
+          <strong id="image-lightbox-title">Tree image</strong>
+          <button type="button" class="image-lightbox-dismiss" id="image-lightbox-dismiss" aria-label="Close image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7.4 6 4.6 4.6L16.6 6 18 7.4 13.4 12 18 16.6 16.6 18 12 13.4 7.4 18 6 16.6 10.6 12 6 7.4z"/></svg>
+          </button>
+        </div>
+        <img id="image-lightbox-image" alt="" />
+      </div>
     </div>
 
     <script>
