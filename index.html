@@ -47,7 +47,14 @@
               <button id="zoom-out-btn" type="button" class="map-tool" aria-label="Zoom out" title="Zoom out">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14v2H5z"/></svg>
               </button>
+              <button id="attribution-btn" type="button" class="map-tool" aria-label="Map attribution" aria-expanded="false" title="Map attribution">
+                <span class="map-tool-text" aria-hidden="true">i</span>
+              </button>
             </div>
+          </div>
+
+          <div class="map-attribution-panel" id="map-attribution-panel" hidden>
+            <span>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · Tiles © <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a></span>
           </div>
 
           <div id="map" class="map" role="application" aria-label="Tree walk map"></div>
@@ -67,7 +74,7 @@
                   <span class="small-chip status-chip" id="status-chip">Loading</span>
                   <button id="reset-visited-inline-btn" type="button" class="small-action" aria-label="Reset visited trees">Reset</button>
                   <button id="tour-collapse-btn" type="button" class="small-action" aria-label="Collapse tour panel">
-                    <span aria-hidden="true">&#8964;</span>
+                    <span>Hide</span>
                   </button>
                 </div>
               </div>

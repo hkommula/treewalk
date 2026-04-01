@@ -6,9 +6,9 @@ import {
   parseTreesCsv,
 } from "./routing.js";
 
-const DEFAULT_VIEW_ZOOM = 17;
-const DEFAULT_TRACKING_ZOOM = 20;
-const MIN_TRACKING_ZOOM = 15;
+const DEFAULT_VIEW_ZOOM = 16;
+const DEFAULT_TRACKING_ZOOM = 16;
+const MIN_TRACKING_ZOOM = 16;
 const MAX_TRACKING_ZOOM = 22;
 const ARRIVAL_THRESHOLD_METERS = 18;
 const ROUTE_BASE_OPACITY = 0.92;
@@ -56,6 +56,8 @@ const state = {
 
 const elements = {
   mapPanel: document.querySelector(".map-panel"),
+  mapElement: document.querySelector("#map"),
+  sidebar: document.querySelector(".sidebar"),
   mapControlGroup: document.querySelector("#map-control-group"),
   mapControlsToggle: document.querySelector("#map-controls-toggle"),
   homeButton: document.querySelector("#home-btn"),
@@ -63,6 +65,8 @@ const elements = {
   resetVisitedButton: document.querySelector("#reset-visited-btn"),
   zoomInButton: document.querySelector("#zoom-in-btn"),
   zoomOutButton: document.querySelector("#zoom-out-btn"),
+  attributionButton: document.querySelector("#attribution-btn"),
+  attributionPanel: document.querySelector("#map-attribution-panel"),
   tourPanel: document.querySelector("#tour-panel"),
   treePanel: document.querySelector("#tree-panel"),
   treePanelBackButton: document.querySelector("#tree-panel-back-btn"),
@@ -129,6 +133,7 @@ async function init() {
   updateTreeCount();
   updateRouteList();
   setStatus("Ready");
+  requestLiveLocation({ buildRoute: true, centerOnFix: true });
 }
 
 function bindUi() {
@@ -154,7 +159,8 @@ function bindUi() {
   });
 
   elements.tourCollapseButton.addEventListener("click", () => {
-    showTourPanel({ collapsed: true });
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    showTourPanel({ collapsed: isMobile ? !state.isTourCollapsed : true });
   });
 
   elements.zoomInButton.addEventListener("click", () => {
@@ -163,6 +169,12 @@ function bindUi() {
 
   elements.zoomOutButton.addEventListener("click", () => {
     state.map?.zoomOut();
+  });
+
+  elements.attributionButton.addEventListener("click", () => {
+    const isOpen = !elements.attributionPanel.hidden;
+    elements.attributionPanel.hidden = isOpen;
+    elements.attributionButton.setAttribute("aria-expanded", String(!isOpen));
   });
 
   elements.tourRestoreButton.addEventListener("click", () => {
@@ -179,6 +191,22 @@ function bindUi() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !elements.lightbox.hidden) {
       closeLightbox();
+    }
+
+    if (event.key === "Escape" && !elements.attributionPanel.hidden) {
+      elements.attributionPanel.hidden = true;
+      elements.attributionButton.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      !elements.attributionPanel.hidden &&
+      !elements.attributionPanel.contains(event.target) &&
+      !elements.attributionButton.contains(event.target)
+    ) {
+      elements.attributionPanel.hidden = true;
+      elements.attributionButton.setAttribute("aria-expanded", "false");
     }
   });
 }
@@ -497,7 +525,7 @@ function selectTree(treeId, { panToTree = true } = {}) {
 
   if (panToTree) {
     const targetZoom = clamp(state.map.getZoom(), 17, 19);
-    state.map.flyTo([tree.latitude, tree.longitude], targetZoom, {
+    flyToVisibleCenter([tree.latitude, tree.longitude], targetZoom, {
       animate: true,
       duration: 0.7,
     });
@@ -889,27 +917,36 @@ function showTreePanel() {
 
 function syncPanels() {
   const showTree = state.activePanel === "tree";
-  const showTour = !showTree && !state.isTourCollapsed;
   const isMobile = window.matchMedia("(max-width: 767px)").matches;
+  const showMobileTourShell = !showTree && isMobile;
+  const showTour = !showTree && (!state.isTourCollapsed || isMobile);
+  const showMobileCollapsedTour = showMobileTourShell && state.isTourCollapsed;
   const showDesktopToggle = !showTree && !isMobile;
-  const showMobileRestore = !showTree && isMobile && state.isTourCollapsed;
 
   elements.tourPanel.hidden = !showTour;
+  elements.tourPanel.classList.toggle("is-mobile-collapsed", showMobileCollapsedTour);
   elements.treePanel.hidden = !showTree;
-  elements.tourCollapseButton.hidden = !showTour || !isMobile;
-  elements.tourRestoreButton.hidden = !(showDesktopToggle || showMobileRestore);
+  elements.tourCollapseButton.hidden = showTree || !isMobile;
+  elements.tourRestoreButton.hidden = !showDesktopToggle;
   elements.tourRestoreButton.setAttribute("aria-expanded", String(showTour));
   elements.tourRestoreButton.setAttribute("aria-label", showTour ? "Collapse tour panel" : "Open tour panel");
   elements.tourRestoreButton.classList.toggle("is-desktop-open", showDesktopToggle && showTour);
-  elements.tourRestoreButton.classList.toggle("is-mobile-collapsed", showMobileRestore);
+  elements.tourRestoreButton.classList.remove("is-mobile-collapsed");
+  elements.sidebar.classList.toggle("is-mobile-tour-collapsed", showMobileCollapsedTour);
+
+  const collapseButtonLabel = showMobileCollapsedTour ? "Open tour panel" : "Collapse tour panel";
+  const collapseButtonText = showMobileCollapsedTour ? "Show" : "Hide";
+  elements.tourCollapseButton.setAttribute("aria-label", collapseButtonLabel);
+  elements.tourCollapseButton.innerHTML = `<span>${collapseButtonText}</span>`;
 
   elements.mapPanel.classList.toggle(
     "is-sidebar-hidden",
-    !showTree && state.isTourCollapsed,
+    !showTree && state.isTourCollapsed && !isMobile,
   );
 
   window.setTimeout(() => {
     state.map?.invalidateSize();
+    refreshMapFocusAfterLayoutChange();
   }, 0);
 }
 
@@ -929,7 +966,7 @@ function centerOnCurrentLocation() {
       ? DEFAULT_TRACKING_ZOOM
       : clamp(currentZoom, MIN_TRACKING_ZOOM, MAX_TRACKING_ZOOM);
 
-  state.map.flyTo([state.currentPosition.lat, state.currentPosition.lng], targetZoom, {
+  flyToVisibleCenter([state.currentPosition.lat, state.currentPosition.lng], targetZoom, {
     animate: true,
     duration: 0.7,
   });
@@ -950,6 +987,7 @@ function fitHomeView(animate) {
       animate,
       duration: animate ? 0.75 : 0,
       maxZoom: 18,
+      ...getVisibleAreaPaddingOptions(),
     });
   }
 }
@@ -974,8 +1012,121 @@ function fitRouteBounds(animate) {
       animate,
       duration: animate ? 0.75 : 0,
       maxZoom: 18,
+      ...getVisibleAreaPaddingOptions(),
     });
   }
+}
+
+function refreshMapFocusAfterLayoutChange() {
+  if (!state.map) {
+    return;
+  }
+
+  const selectedTree = getTreeById(state.selectedTreeId);
+
+  if (state.activePanel === "tree" && selectedTree) {
+    const targetZoom = clamp(state.map.getZoom(), 17, 19);
+    flyToVisibleCenter([selectedTree.latitude, selectedTree.longitude], targetZoom, {
+      animate: false,
+    });
+    return;
+  }
+
+  if (state.currentPosition && state.startMode === "gps") {
+    const currentZoom = state.map.getZoom();
+    const targetZoom =
+      currentZoom < MIN_TRACKING_ZOOM || currentZoom > MAX_TRACKING_ZOOM
+        ? DEFAULT_TRACKING_ZOOM
+        : clamp(currentZoom, MIN_TRACKING_ZOOM, MAX_TRACKING_ZOOM);
+
+    flyToVisibleCenter([state.currentPosition.lat, state.currentPosition.lng], targetZoom, {
+      animate: false,
+    });
+    return;
+  }
+
+  if (state.tour?.coordinates?.length) {
+    fitRouteBounds(false);
+    return;
+  }
+
+  if (state.homeBounds?.isValid()) {
+    fitHomeView(false);
+  }
+}
+
+function flyToVisibleCenter(latlng, zoom, options = {}) {
+  if (!state.map) {
+    return;
+  }
+
+  const visibleCenter = getVisibleAreaCenterOffset();
+  const targetPoint = state.map.project(L.latLng(latlng[0], latlng[1]), zoom).subtract(visibleCenter);
+  const targetLatLng = state.map.unproject(targetPoint, zoom);
+  state.map.flyTo(targetLatLng, zoom, options);
+}
+
+function getVisibleAreaPaddingOptions() {
+  const insets = getMapOverlayInsets();
+  const basePadding = 24;
+
+  return {
+    paddingTopLeft: L.point(basePadding + insets.left, basePadding + insets.top),
+    paddingBottomRight: L.point(basePadding + insets.right, basePadding + insets.bottom),
+  };
+}
+
+function getVisibleAreaCenterOffset() {
+  if (!state.map) {
+    return L.point(0, 0);
+  }
+
+  const insets = getMapOverlayInsets();
+  return L.point(
+    (insets.left - insets.right) / 2,
+    (insets.top - insets.bottom) / 2,
+  );
+}
+
+function getMapOverlayInsets() {
+  const mapRect = elements.mapElement?.getBoundingClientRect();
+
+  if (!mapRect) {
+    return { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+
+  const overlayRects = [elements.sidebar]
+    .filter((element) => element && !element.hidden)
+    .map((element) => element.getBoundingClientRect());
+
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+
+  for (const rect of overlayRects) {
+    const overlapWidth = Math.max(0, Math.min(mapRect.right, rect.right) - Math.max(mapRect.left, rect.left));
+    const overlapHeight = Math.max(0, Math.min(mapRect.bottom, rect.bottom) - Math.max(mapRect.top, rect.top));
+
+    if (!overlapWidth || !overlapHeight) {
+      continue;
+    }
+
+    if (rect.top <= mapRect.top + 1) {
+      insets.top = Math.max(insets.top, Math.min(mapRect.bottom, rect.bottom) - mapRect.top);
+    }
+
+    if (rect.bottom >= mapRect.bottom - 1) {
+      insets.bottom = Math.max(insets.bottom, mapRect.bottom - Math.max(mapRect.top, rect.top));
+    }
+
+    if (rect.left <= mapRect.left + 1) {
+      insets.left = Math.max(insets.left, Math.min(mapRect.right, rect.right) - mapRect.left);
+    }
+
+    if (rect.right >= mapRect.right - 1) {
+      insets.right = Math.max(insets.right, mapRect.right - Math.max(mapRect.left, rect.left));
+    }
+  }
+
+  return insets;
 }
 
 function buildHomeBounds() {
