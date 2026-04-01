@@ -7,7 +7,10 @@ import {
 } from "./routing.js";
 
 const DEFAULT_VIEW_ZOOM = 16;
-const DEFAULT_TRACKING_ZOOM = 16;
+const DEFAULT_TRACKING_ZOOM = 20;
+const DESKTOP_TRACKING_ZOOM = 19;
+const MOBILE_HOME_MAX_ZOOM = 17;
+const DESKTOP_HOME_MAX_ZOOM = 18;
 const MIN_TRACKING_ZOOM = 16;
 const MAX_TRACKING_ZOOM = 22;
 const ARRIVAL_THRESHOLD_METERS = 18;
@@ -144,10 +147,12 @@ function bindUi() {
 
   elements.homeButton.addEventListener("click", () => {
     fitHomeView(true);
+    collapseMapControls();
   });
 
   elements.locateButton.addEventListener("click", () => {
     requestLiveLocation({ buildRoute: true, centerOnFix: true });
+    collapseMapControls();
   });
 
   elements.resetVisitedButton.addEventListener("click", () => {
@@ -200,6 +205,14 @@ function bindUi() {
   });
 
   document.addEventListener("click", (event) => {
+    if (
+      state.mapControlsOpen &&
+      !elements.mapControlGroup.contains(event.target)
+    ) {
+      state.mapControlsOpen = false;
+      syncMapControls();
+    }
+
     if (
       !elements.attributionPanel.hidden &&
       !elements.attributionPanel.contains(event.target) &&
@@ -955,16 +968,21 @@ function syncMapControls() {
   elements.mapControlsToggle.setAttribute("aria-expanded", String(state.mapControlsOpen));
 }
 
+function collapseMapControls() {
+  if (!state.mapControlsOpen) {
+    return;
+  }
+
+  state.mapControlsOpen = false;
+  syncMapControls();
+}
+
 function centerOnCurrentLocation() {
   if (!state.currentPosition || !state.map) {
     return;
   }
 
-  const currentZoom = state.map.getZoom();
-  const targetZoom =
-    currentZoom < MIN_TRACKING_ZOOM || currentZoom > MAX_TRACKING_ZOOM
-      ? DEFAULT_TRACKING_ZOOM
-      : clamp(currentZoom, MIN_TRACKING_ZOOM, MAX_TRACKING_ZOOM);
+  const targetZoom = getTrackingTargetZoom();
 
   flyToVisibleCenter([state.currentPosition.lat, state.currentPosition.lng], targetZoom, {
     animate: true,
@@ -986,7 +1004,7 @@ function fitHomeView(animate) {
     state.map.fitBounds(state.homeBounds.pad(0.05), {
       animate,
       duration: animate ? 0.75 : 0,
-      maxZoom: 18,
+      maxZoom: getHomeMaxZoom(),
       ...getVisibleAreaPaddingOptions(),
     });
   }
@@ -1011,7 +1029,7 @@ function fitRouteBounds(animate) {
     state.map.fitBounds(bounds.pad(0.12), {
       animate,
       duration: animate ? 0.75 : 0,
-      maxZoom: 18,
+      maxZoom: getHomeMaxZoom(),
       ...getVisibleAreaPaddingOptions(),
     });
   }
@@ -1033,13 +1051,7 @@ function refreshMapFocusAfterLayoutChange() {
   }
 
   if (state.currentPosition && state.startMode === "gps") {
-    const currentZoom = state.map.getZoom();
-    const targetZoom =
-      currentZoom < MIN_TRACKING_ZOOM || currentZoom > MAX_TRACKING_ZOOM
-        ? DEFAULT_TRACKING_ZOOM
-        : clamp(currentZoom, MIN_TRACKING_ZOOM, MAX_TRACKING_ZOOM);
-
-    flyToVisibleCenter([state.currentPosition.lat, state.currentPosition.lng], targetZoom, {
+    flyToVisibleCenter([state.currentPosition.lat, state.currentPosition.lng], getTrackingTargetZoom(), {
       animate: false,
     });
     return;
@@ -1074,6 +1086,19 @@ function getVisibleAreaPaddingOptions() {
     paddingTopLeft: L.point(basePadding + insets.left, basePadding + insets.top),
     paddingBottomRight: L.point(basePadding + insets.right, basePadding + insets.bottom),
   };
+}
+
+function getHomeMaxZoom() {
+  return isMobileView() ? MOBILE_HOME_MAX_ZOOM : DESKTOP_HOME_MAX_ZOOM;
+}
+
+function getTrackingTargetZoom() {
+  const preferredZoom = isMobileView() ? DEFAULT_TRACKING_ZOOM : DESKTOP_TRACKING_ZOOM;
+  return clamp(preferredZoom, MIN_TRACKING_ZOOM, MAX_TRACKING_ZOOM);
+}
+
+function isMobileView() {
+  return window.matchMedia("(max-width: 767px)").matches;
 }
 
 function getVisibleAreaCenterOffset() {

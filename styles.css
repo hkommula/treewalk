@@ -609,7 +609,7 @@ img {
 
 .tree-card-media {
   position: relative;
-  margin: 0.72rem 0.72rem 0;
+  margin: 0.58rem 0.58rem 0;
   border-radius: 0.9rem;
   overflow: hidden;
   background: rgba(226, 235, 228, 0.78);
@@ -697,9 +697,9 @@ img {
 
 .tree-body {
   display: grid;
-  gap: 0.72rem;
-  padding: 0.85rem;
-  padding-bottom: 1.1rem;
+  gap: 0.58rem;
+  padding: 0.68rem;
+  padding-bottom: 0.82rem;
 }
 
 .tree-expand-action {
@@ -726,8 +726,8 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.65rem;
-  padding: 0.55rem 0.65rem;
+  gap: 0.55rem;
+  padding: 0.46rem 0.56rem;
   border-radius: 0.8rem;
   background: rgba(223, 236, 227, 0.74);
 }
@@ -736,7 +736,7 @@ img {
   min-width: 0;
   display: grid;
   align-content: start;
-  gap: 0.16rem;
+  gap: 0.1rem;
 }
 
 .tree-body h3 {
@@ -748,7 +748,7 @@ img {
 .tree-meta-stack {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem 0.8rem;
+  gap: 0.42rem 0.62rem;
 }
 
 .tree-scientific-line {
@@ -766,7 +766,7 @@ img {
 .tree-meta-item span,
 .tree-location-line span {
   display: block;
-  margin-bottom: 0.16rem;
+  margin-bottom: 0.1rem;
   color: #5b7466;
   font-size: 0.62rem;
   font-weight: 700;
@@ -788,7 +788,7 @@ img {
   color: var(--muted);
   font-style: normal;
   font-weight: 500;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .tree-location-line {
