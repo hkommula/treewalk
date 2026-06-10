@@ -4,763 +4,744 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>UOW Campus Tree Walk</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
     <style>
         :root {
-            --uow-red: #E51937;
-            --uow-navy: #001A3B;
-            --bg-dark: #0d1117;
-            --panel-bg: rgba(13, 17, 23, 0.94);
-            --text-main: #e8edf3;
-            --text-muted: #7d8a96;
-            --text-dim: #4e5a66;
-            --accent-green: #2ea043;
-            --accent-green-glow: rgba(46, 160, 67, 0.25);
-            --border-subtle: rgba(255,255,255,0.06);
-            --border-soft: rgba(255,255,255,0.1);
-            --card-bg: rgba(255,255,255,0.025);
-            --card-bg-hover: rgba(255,255,255,0.055);
+            --uow-red: #E51937; --bg-dark: #0d1117;
+            --panel-bg: rgba(13,17,23,0.94);
+            --text-main: #e8edf3; --text-muted: #7d8a96; --text-dim: #4e5a66;
+            --accent-green: #2ea043; --accent-blue: #3b82f6;
+            --border-subtle: rgba(255,255,255,0.06); --border-soft: rgba(255,255,255,0.1);
+            --card-bg: rgba(255,255,255,0.025); --card-bg-hover: rgba(255,255,255,0.055);
+            --marker-size: 11px; /* Dynamically controlled by Zoom */
+        }
+        *,*::before,*::after{box-sizing:border-box}
+        body,html{margin:0;padding:0;height:100%;overflow:hidden;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+            background:var(--bg-dark);color:var(--text-main)}
+        #map{position:absolute;top:0;left:0;width:100vw;height:100vh;z-index:1}
+
+        /* ── Modern Minimalist Panel ── */
+        #ui-panel{
+            position:absolute;top:16px;left:16px;
+            width:clamp(280px,25vw,360px);height:calc(100vh - 32px);
+            background:var(--panel-bg);
+            backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+            border:1px solid var(--border-subtle);border-radius:14px;
+            z-index:1000;display:flex;flex-direction:column;
+            box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 0 0.5px rgba(255,255,255,0.04);
+            will-change:transform; overflow:hidden;
         }
 
-        *, *::before, *::after { box-sizing: border-box; }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-dark); color: var(--text-main); }
+        /* ── Ultra-Compact Header Redesign ── */
+        .panel-header{position:relative; padding:12px; background:rgba(255,255,255,0.015);}
+        .header-top {display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+        .uow-title{color:var(--text-main);font-weight:800;letter-spacing:-.5px;
+            font-size:1.05rem;margin:0; line-height:1;}
+        .uow-title span{color:var(--uow-red)}
         
-        #map { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        .route-controls{display:flex;gap:4px; background:rgba(0,0,0,0.4); padding:3px; border-radius:6px; border:1px solid var(--border-subtle);}
+        .route-btn{font-size:0.6rem;font-weight:700;padding:4px 8px; border-radius:4px;
+            border:none;background:transparent;color:var(--text-muted);cursor:pointer;
+            transition:background .15s,color .15s;white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;}
+        .route-btn:hover{color:var(--text-main)}
+        .route-btn.active{background:var(--uow-red);color:#fff; box-shadow:0 2px 8px rgba(229,25,55,.4)}
 
-        /* ── Panel ─────────────────────────────────── */
-        #ui-panel {
-            position: absolute; top: 16px; left: 16px;
-            width: clamp(280px, 22vw, 340px);
-            height: calc(100vh - 32px);
-            background: var(--panel-bg);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-subtle); border-radius: 16px;
-            z-index: 1000; display: flex; flex-direction: column;
-            box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.04);
-            transition: all 0.3s ease;
+        .header-stats {display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); font-weight:600;}
+        .stat-item {display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.03); padding:4px 8px; border-radius:6px; border:1px solid var(--border-subtle);}
+        .stat-item i {color:var(--uow-red); font-size:0.75rem;}
+        
+        .progress-track{position:absolute; bottom:0; left:0; width:100%; height:3px; background:rgba(255,255,255,0.05);}
+        .progress-fill{height:100%;background:linear-gradient(90deg,var(--uow-red),#ff5370);
+            transition:width .5s cubic-bezier(0.4, 0, 0.2, 1);width:0%}
+
+        /* ── Scrollable Body ── */
+        .panel-body{padding:8px 10px;overflow-y:auto;flex-grow:1;scroll-behavior:smooth;}
+        .panel-body::-webkit-scrollbar{width:4px}
+        .panel-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+
+        /* ── Tree Cards (Thumbnails Removed) ── */
+        .stops-label{font-size:.6rem;font-weight:700;text-transform:uppercase;
+            letter-spacing:.8px;color:var(--text-dim);padding:4px 4px 6px;}
+        
+        .tree-card{background:var(--card-bg);border:1px solid var(--border-subtle);
+            border-radius:9px;padding:9px 12px;margin-bottom:5px;cursor:pointer;
+            display:flex;flex-direction:column;align-items:stretch;gap:4px;
+            transition:background .15s,border-color .15s;}
+        .tree-card:hover{background:var(--card-bg-hover); transform:translateY(-1px);}
+        .tree-card.active{border-color:rgba(229,25,55,.5);background:rgba(229,25,55,.07);
+            border-left:3px solid var(--uow-red)}
+        .tree-card.visited{border-color:rgba(46,160,67,.35);background:rgba(46,160,67,.04)}
+        
+        .tree-card-header{display:flex;align-items:center;justify-content:space-between;width:100%}
+        .card-content{flex:1;min-width:0}
+        .card-name{font-size:.8rem;font-weight:700;color:var(--text-main);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+        .card-sci{font-size:.65rem;color:var(--text-muted);font-style:italic;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;margin-top:2px}
+        .card-check{color:var(--accent-green);font-size:1rem;flex-shrink:0}
+
+        /* ── Inline Card Details ── */
+        .popup-body{padding:8px 0 2px 0}
+        .popup-fam{font-size:.74rem;color:var(--text-main);margin-bottom:8px}
+        .popup-fam span{color:var(--text-muted)}
+        .popup-coords{background:rgba(0,0,0,.25);padding:5px 8px;border-radius:6px;
+            font-family:monospace;font-size:.65rem;display:flex; justify-content:space-between;
+            color:var(--text-dim);margin-bottom:10px; border:1px solid var(--border-subtle)}
+        .popup-dist{color:var(--accent-blue); font-weight:bold;}
+        
+        .popup-btns{display:flex;gap:5px}
+        .popup-btns .pb{flex:1; font-size:.7rem; padding:7px; border-radius:6px;
+            font-weight:600; cursor:pointer; border:none; text-align:center;
+            text-decoration:none; display:block; white-space:nowrap;}
+        .pb-ala{border:1px solid rgba(255,255,255,.14)!important;color:var(--text-muted);
+            background:transparent;transition:background .15s,color .15s}
+        .pb-ala:hover{background:rgba(255,255,255,.08);color:var(--text-main)}
+        .pb-visit{background:var(--accent-green);color:#fff}
+        .pb-unvisit{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)!important;color:var(--text-muted)}
+
+        /* ── Image Viewer inside Card ── */
+        .popup-img-wrap{position:relative;width:100%;height:140px; border-radius:8px;
+            overflow:hidden;cursor:zoom-in;background:#1a1f26; margin-top:8px;}
+        .popup-img-blur{position:absolute;inset:0;width:100%;height:100%;
+            object-fit:cover;filter:blur(10px) brightness(.7);transform:scale(1.08);
+            transition:opacity .3s ease}
+        .popup-img-hi{position:absolute;inset:0;width:100%;height:100%;
+            object-fit:cover;opacity:0;transition:opacity .4s ease,transform .3s ease}
+        .popup-img-hi.loaded{opacity:1}
+        .popup-img-wrap:hover .popup-img-hi.loaded{transform:scale(1.03)}
+
+        /* ── Map Controls & Proximity Tooltips ── */
+        .map-controls{position:absolute;top:16px;right:16px;z-index:1000;
+            display:flex;flex-direction:column;gap:8px; transition:opacity 0.3s ease;}
+        .icon-btn{background:var(--panel-bg);color:var(--text-main);
+            border:1px solid var(--border-soft);border-radius:10px;
+            width:40px;height:40px;cursor:pointer;display:flex;align-items:center;
+            justify-content:center;font-size:16px;
+            backdrop-filter:blur(18px);box-shadow:0 4px 14px rgba(0,0,0,.45);
+            transition:background .15s}
+        .icon-btn:hover{background:rgba(255,255,255,.12)}
+        .icon-btn.active{background:var(--uow-red);border-color:transparent;color:#fff;}
+        .pathway-icon{width:17px;height:17px;display:block;opacity:.85}
+
+        /* Leaflet Overrides */
+        .leaflet-control-attribution{background:rgba(13,17,23,.75)!important;color:#4e5a66!important;font-size:.58rem!important}
+        .leaflet-control-zoom {transition:opacity 0.3s ease;}
+        .leaflet-control-zoom a{background:var(--panel-bg)!important;color:var(--text-main)!important;border-color:var(--border-soft)!important}
+        
+        /* Proximity Name Popup Style */
+        .nearby-tree-label {
+            background: rgba(13,17,23,0.85); border: 1px solid var(--accent-green);
+            color: #fff; font-weight: 700; font-size: 0.65rem; border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); backdrop-filter: blur(4px); padding: 4px 6px;
         }
-        .panel-header { padding: clamp(14px, 2vw, 20px); border-bottom: 1px solid var(--border-subtle); }
-        .panel-body { padding: 10px; overflow-y: auto; flex-grow: 1; scroll-behavior: smooth; }
-        .panel-body::-webkit-scrollbar { width: 4px; }
-        .panel-body::-webkit-scrollbar-track { background: transparent; }
-        .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .leaflet-tooltip.nearby-tree-label {background: transparent; border: none; box-shadow: none; padding: 0;}
+        .leaflet-tooltip-top.nearby-tree-label::before {border-top-color: var(--accent-green);}
 
-        /* ── Branding ──────────────────────────────── */
-        .uow-title { color: var(--text-main); font-weight: 800; letter-spacing: -0.5px; font-size: clamp(1rem, 1.6vw, 1.25rem); margin: 0 0 10px 0; }
-        .uow-title span { color: var(--uow-red); }
+        /* ── Lightbox ── */
+        #lightbox{display:none;position:fixed;z-index:9999;inset:0;
+            background:rgba(0,0,0,.95);justify-content:center;align-items:center;
+            opacity:0;transition:opacity .25s;backdrop-filter:blur(12px)}
+        #lightbox.show{display:flex;opacity:1}
+        #lightbox img{max-width:90vw;max-height:88vh;border-radius:12px;box-shadow:0 0 50px rgba(0,0,0,.9)}
+        .close-lb{position:absolute;top:18px;right:22px;font-size:1.9rem;
+            color:rgba(255,255,255,.5);cursor:pointer;transition:color .15s;line-height:1}
 
-        /* ── Progress Bar ──────────────────────────── */
-        .progress-section { margin-bottom: 10px; }
-        .progress-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 0.3px; }
-        .progress-label strong { color: var(--text-main); }
-        .progress-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--uow-red), #ff5370); border-radius: 99px; transition: width 0.5s ease; }
-
-        /* ── Route Stats ───────────────────────────── */
-        .route-stats { font-size: 0.78rem; color: var(--text-main); margin-bottom: 10px; font-weight: 600; display: flex; justify-content: space-between; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-subtle); }
-        .route-stats span { display: flex; align-items: center; gap: 5px; }
-        .route-stats i { color: var(--uow-red); }
-
-        /* ── Route Buttons ─────────────────────────── */
-        .route-controls { display: flex; gap: 6px; }
-        .route-btn { flex: 1; font-size: clamp(0.65rem, 1vw, 0.75rem); font-weight: 600; padding: 7px 4px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.35); color: var(--text-muted); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .route-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-main); }
-        .route-btn.active { background: var(--uow-red); border-color: transparent; color: #fff; box-shadow: 0 3px 10px rgba(229,25,55,0.35); }
-
-        /* ── Section Label ─────────────────────────── */
-        .stops-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); padding: 6px 4px 4px; }
-
-        /* ── Tree Cards (Compact) ──────────────────── */
-        .tree-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px; padding: 8px 10px;
-            margin-bottom: 5px; cursor: pointer;
-            transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .tree-card:hover { background: var(--card-bg-hover); transform: translateX(2px); }
-        .tree-card.active { border-color: rgba(229,25,55,0.5); background: rgba(229,25,55,0.07); border-left: 3px solid var(--uow-red); }
-        .tree-card.visited { border-color: rgba(46,160,67,0.35); background: rgba(46,160,67,0.04); }
-        .tree-card.visited .card-stop-num { color: var(--accent-green); }
-
-        /* ── Card Thumbnail ────────────────────────── */
-        .card-thumb {
-            width: 38px; height: 38px; border-radius: 50%;
-            object-fit: cover; flex-shrink: 0;
-            border: 1.5px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.05);
-        }
-        .card-thumb-placeholder {
-            width: 38px; height: 38px; border-radius: 50%;
-            background: rgba(255,255,255,0.05);
-            border: 1.5px solid rgba(255,255,255,0.08);
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0; color: var(--text-dim); font-size: 14px;
-        }
-
-        /* ── Card Text ─────────────────────────────── */
-        .card-content { flex: 1; min-width: 0; }
-        .card-stop-num { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 700; line-height: 1; margin-bottom: 2px; }
-        .card-name { font-size: 0.8rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-        .card-scientific { font-size: 0.68rem; color: var(--text-muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; margin-top: 1px; }
-        .card-check { color: var(--accent-green); font-size: 0.9rem; flex-shrink: 0; }
-
-        /* ── Map Controls ──────────────────────────── */
-        .map-controls { position: absolute; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
-        .icon-btn { background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-soft); border-radius: 10px; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; backdrop-filter: blur(20px); box-shadow: 0 4px 14px rgba(0,0,0,0.45); transition: all 0.2s; }
-        .icon-btn:hover { background: rgba(255,255,255,0.09); }
-        .icon-btn.active { background: var(--uow-red); border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(229,25,55,0.4); }
-
-        /* ── Start/End Markers ─────────────────────── */
-        .route-endpoint {
-            display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
-            border-radius: 20px; padding: 3px 7px;
-            white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            border: 1.5px solid rgba(255,255,255,0.3);
-        }
-
-        /* ── Popup ─────────────────────────────────── */
-        .leaflet-popup-content-wrapper {
-            padding: 0; background: var(--panel-bg); color: var(--text-main);
-            border-radius: 16px; border: 1px solid var(--border-soft);
-            overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.85);
-            backdrop-filter: blur(16px);
-        }
-        .leaflet-popup-content { margin: 0; width: clamp(280px, 28vw, 360px) !important; }
-        .leaflet-popup-tip { background: var(--panel-bg); }
-        .leaflet-container a.leaflet-popup-close-button {
-            color: rgba(255,255,255,0.75); text-shadow: none;
-            padding: 10px 12px; font-size: 18px; z-index: 10;
-            background: rgba(0,0,0,0.4); border-radius: 0 0 0 8px;
-            transition: color 0.2s, background 0.2s;
-        }
-        .leaflet-container a.leaflet-popup-close-button:hover { color: #fff; background: rgba(0,0,0,0.6); }
-
-        /* ── Popup Image Progressive Load ─────────── */
-        .popup-img-wrapper {
-            position: relative; width: 100%; height: clamp(140px, 15vw, 180px);
-            overflow: hidden; cursor: zoom-in; background: #1a1f26;
-        }
-        .popup-img-blur {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; filter: blur(12px) brightness(0.7);
-            transform: scale(1.1); transition: opacity 0.4s ease;
-        }
-        .popup-img-hires {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0; transition: opacity 0.5s ease, transform 0.3s ease;
-        }
-        .popup-img-hires.loaded { opacity: 1; }
-        .popup-img-wrapper:hover .popup-img-hires.loaded { transform: scale(1.04); }
-        .popup-img-skeleton {
-            position: absolute; inset: 0;
-            background: linear-gradient(90deg, #1a1f26 25%, #232930 50%, #1a1f26 75%);
-            background-size: 200% 100%; animation: shimmer 1.4s infinite;
-        }
-        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-        /* ── Popup Body ────────────────────────────── */
-        .popup-body { padding: clamp(12px, 2vw, 18px); }
-        .popup-stop-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--uow-red); background: rgba(229,25,55,0.1); border: 1px solid rgba(229,25,55,0.2); border-radius: 4px; padding: 2px 7px; margin-bottom: 8px; }
-        .popup-name { color: var(--text-main); font-weight: 800; font-size: clamp(0.95rem, 1.4vw, 1.1rem); line-height: 1.2; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .popup-scientific { font-style: italic; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 8px; }
-        .popup-family { font-size: 0.78rem; color: var(--text-main); margin-bottom: 10px; }
-        .popup-family span { color: var(--text-muted); }
-        .popup-coords { background: rgba(0,0,0,0.3); padding: 5px 8px; border-radius: 6px; font-family: monospace; font-size: 0.68rem; text-align: center; color: var(--text-dim); margin-bottom: 12px; }
-        .popup-btn-row { display: flex; flex-direction: column; gap: 6px; }
-        .popup-btn-row .btn { font-size: 0.78rem; padding: 7px 10px; border-radius: 8px; font-weight: 600; }
-        .btn-ala { border: 1px solid rgba(255,255,255,0.15); color: var(--text-muted); background: transparent; transition: all 0.2s; }
-        .btn-ala:hover { background: rgba(255,255,255,0.06); color: var(--text-main); border-color: rgba(255,255,255,0.25); }
-        .btn-visit { background: var(--accent-green); border: none; color: #fff; }
-        .btn-unvisit { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--text-muted); }
-
-        /* ── Start/Finish Labels (Pathway) ─────────── */
-        .endpoint-label {
-            display: flex; align-items: center; gap: 5px;
-            background: var(--panel-bg); border: 1px solid var(--border-soft);
-            border-radius: 20px; padding: 4px 10px;
-            font-size: 0.65rem; font-weight: 700; letter-spacing: 0.4px;
-            color: var(--text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-            backdrop-filter: blur(12px);
-        }
-
-        /* ── Leaflet Attribution ───────────────────── */
-        .leaflet-control-attribution { background: rgba(13,17,23,0.75) !important; color: #4e5a66 !important; font-size: 0.6rem !important; }
-        .leaflet-control-attribution a { color: #5e7a90 !important; }
-
-        /* ── Zoom Control ──────────────────────────── */
-        .leaflet-control-zoom a { background: var(--panel-bg) !important; color: var(--text-main) !important; border-color: var(--border-soft) !important; }
-        .leaflet-control-zoom a:hover { background: rgba(255,255,255,0.1) !important; }
-
-        /* ── Lightbox ──────────────────────────────── */
-        #lightbox { display: none; position: fixed; z-index: 9999; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.93); justify-content:center; align-items:center; opacity: 0; transition: opacity 0.3s; backdrop-filter: blur(12px); }
-        #lightbox.show { display: flex; opacity: 1; }
-        #lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 0 50px rgba(0,0,0,0.9); }
-        .close-lightbox { position: absolute; top: 20px; right: 24px; font-size: 2rem; color: rgba(255,255,255,0.5); cursor: pointer; transition: color 0.2s; line-height: 1; }
-        .close-lightbox:hover { color: #fff; }
-
-        /* ── Mobile ────────────────────────────────── */
-        @media (max-width: 768px) {
-            #ui-panel {
-                top: auto; bottom: 0; left: 0; width: 100vw;
-                height: 46vh; border-radius: 20px 20px 0 0;
-                border: none; border-top: 1px solid var(--border-subtle);
-            }
-            #ui-panel::before { content: ''; width: 36px; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); }
-            #map { height: 57vh; }
-            .map-controls { top: 12px; right: 12px; }
-            .leaflet-popup-content { width: min(85vw, 300px) !important; }
-            .panel-header { padding: 14px 16px 12px; }
-            .panel-body { padding: 8px; }
-            .uow-title { font-size: 0.95rem; }
-            .route-btn { font-size: 0.62rem; padding: 6px 3px; }
-            .card-name { font-size: 0.75rem; }
-        }
-
-        @media (min-width: 1400px) {
-            #ui-panel { width: 360px; }
-            .leaflet-popup-content { width: 380px !important; }
+        /* ── Mobile Viewports ── */
+        @media(max-width:768px){
+            #ui-panel{top:auto;bottom:0;left:0;width:100vw;height:48vh;
+                border-radius:20px 20px 0 0;border:none; border-top:1px solid var(--border-subtle)}
+            #ui-panel::before{content:'';width:36px;height:4px; background:rgba(255,255,255,.15);
+                border-radius:2px; position:absolute;top:8px;left:50%;transform:translateX(-50%)}
+            #map{height:55vh}
+            .map-controls{top:10px;right:10px}
+            .panel-header{padding:14px 14px 10px; margin-top:8px;}
         }
     </style>
 </head>
 <body>
-
 <div id="map"></div>
 
 <div id="ui-panel">
     <div class="panel-header">
-        <h4 class="uow-title">UOW <span>Tree Walk</span></h4>
-        <div class="progress-section">
-            <div class="progress-label">
-                <span>Progress</span>
-                <strong id="progress-text">0 / 0 visited</strong>
-            </div>
-            <div class="progress-track">
-                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        <div class="header-top">
+            <h4 class="uow-title">UOW <span>Tree Walk</span></h4>
+            <div class="route-controls">
+                <button class="route-btn active" onclick="setRouteMode('recommended')" id="btn-recommended">Rec</button>
+                <button class="route-btn" onclick="setRouteMode('auto')" id="btn-auto">Near</button>
+                <button class="route-btn" onclick="setRouteMode('random')" id="btn-random">Rand</button>
             </div>
         </div>
-        <div class="route-stats" id="route-stats">
-            <span><i class="bi bi-signpost-fill"></i> -- km</span>
-            <span><i class="bi bi-clock-history"></i> -- mins</span>
+        <div class="header-stats">
+            <span class="stat-item" title="Progress"><i class="bi bi-check2-circle"></i> <span id="progress-text">0/0</span></span>
+            <span class="stat-item" title="Distance Left"><i class="bi bi-ruler"></i> <span id="stat-dist">-- km</span></span>
+            <span class="stat-item" title="Estimated Time"><i class="bi bi-clock-history"></i> <span id="stat-time">-- min</span></span>
         </div>
-        <div class="route-controls">
-            <button class="route-btn active" onclick="setRouteMode('recommended')" id="btn-recommended">Recommended</button>
-            <button class="route-btn" onclick="setRouteMode('auto')" id="btn-auto">Nearest</button>
-            <button class="route-btn" onclick="setRouteMode('random')" id="btn-random">Random</button>
-        </div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
     </div>
+
     <div class="panel-body" id="stops-list">
-        <div class="text-center mt-4" style="color: var(--text-muted);">
-            <div class="spinner-border spinner-border-sm mb-2" style="color: var(--uow-red);"></div>
-            <div style="font-size:0.8rem;">Loading walk data…</div>
+        <div style="text-align:center;padding-top:2rem;color:var(--text-muted)">
+            <div style="width:18px;height:18px;border:2px solid var(--uow-red);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 8px"></div>
+            <div style="font-size:.78rem">Loading mapping data…</div>
         </div>
     </div>
 </div>
 
 <div class="map-controls">
-    <button id="gps-toggle" class="icon-btn" title="Track my location"><i class="bi bi-crosshair"></i></button>
-    <button id="btn-paths" class="icon-btn active" title="Toggle Campus Paths"><i class="bi bi-layers"></i></button>
+    <button id="gps-toggle" class="icon-btn" title="Track my location">
+        <i class="bi bi-crosshair"></i>
+    </button>
+    <button id="satellite-toggle" class="icon-btn" title="Toggle Satellite Overlay">
+        <i class="bi bi-globe"></i>
+    </button>
+    <button id="btn-paths" class="icon-btn active" title="Toggle Campus Paths">
+        <svg class="pathway-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2 C8 5 6 8 6 10 C6 13 8 16 10 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M10 2 C12 5 14 8 14 10 C14 13 12 16 10 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="7.2" y1="6.5" x2="12.8" y2="6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="1.5 2"/>
+            <line x1="6.5" y1="10" x2="13.5" y2="10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="1.5 2"/>
+            <line x1="7.2" y1="13.5" x2="12.8" y2="13.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="1.5 2"/>
+        </svg>
+    </button>
 </div>
 
 <div id="lightbox" onclick="closeLightbox()">
-    <i class="bi bi-x close-lightbox"></i>
-    <img id="lightbox-img" src="" alt="Fullscreen Tree">
+    <i class="bi bi-x close-lb"></i>
+    <img id="lightbox-img" src="" alt="Tree High Res">
 </div>
 
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <script>
-    // ==========================================
-    // 1. MAP INIT
-    // ==========================================
-    const expandedBounds = [[-34.4285, 150.8468], [-34.3795, 150.9081]];
-    const map = L.map('map', {
-        maxBounds: expandedBounds, maxBoundsViscosity: 1.0,
-        minZoom: 14, zoomControl: false
-    }).setView([-34.4058, 150.8800], 16);
+// ── 1. MAP INIT, DYNAMIC MARKERS & AUTO-HIDE ─────────────────────────
+const UOW_CENTER = [-34.4080, 150.8784];
+function calcBounds() {
+    const isMob = window.innerWidth <= 768;
+    const baseLat = 0.008, baseLng = 0.012;
+    return [
+        [UOW_CENTER[0] - baseLat * (isMob ? 1.5 : 1.3), UOW_CENTER[1] - baseLng * (isMob ? 1.3 : 1.3)],
+        [UOW_CENTER[0] + baseLat * (isMob ? 1.8 : 1.3), UOW_CENTER[1] + baseLng * (isMob ? 1.3 : 1.3)]
+    ];
+}
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© CARTO', maxZoom: 20
+const map = L.map('map', {
+    maxBounds: calcBounds(), maxBoundsViscosity: 0.9, minZoom: 15, zoomControl: false, preferCanvas: true
+}).setView(UOW_CENTER, 16);
+
+window.addEventListener('resize', () => map.setMaxBounds(calcBounds()), { passive: true });
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// Scale markers dynamically based on map zoom to declutter
+map.on('zoomend', () => {
+    const z = map.getZoom();
+    let size = z <= 15 ? '7px' : z === 16 ? '9px' : z === 17 ? '12px' : '15px';
+    document.documentElement.style.setProperty('--marker-size', size);
+});
+document.documentElement.style.setProperty('--marker-size', '9px'); // Initialize
+
+// Auto-Hide Interface Map Logic
+let controlsTimeout;
+function showMapControls() {
+    document.querySelectorAll('.map-controls, .leaflet-control-zoom').forEach(el => { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; });
+    clearTimeout(controlsTimeout);
+    controlsTimeout = setTimeout(() => {
+        document.querySelectorAll('.map-controls, .leaflet-control-zoom').forEach(el => { el.style.opacity = '0'; el.style.pointerEvents = 'none'; });
+    }, 3000);
+}
+map.on('mousemove touchstart move zoomend click', showMapControls);
+showMapControls();
+
+// Basemap Setup
+const darkBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, opacity: 0.6 });
+const darkLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 20, zIndex: 10 }).addTo(map);
+
+let treeData = [], currentRoute = [], markersMap = {};
+const routeGroupFull = L.layerGroup().addTo(map);
+const routeGroupRemaining = L.layerGroup().addTo(map);
+const visitedStops = new Set();
+let userLoc = null;
+const networkGraph = {}, nodeCoords = {};
+let activeTreeId = null;
+
+const DEG = Math.PI / 180;
+function getDistance(lat1, lon1, lat2, lon2) {
+    const p1 = lat1*DEG, p2 = lat2*DEG;
+    const dp = (lat2-lat1)*DEG, dl = (lon2-lon1)*DEG;
+    const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+    return 6371e3 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── Image Cache Hook ──
+async function getOptimizedImageSrc(url) {
+    if (!url || !('caches' in window)) return url;
+    try {
+        const cacheStorage = await caches.open('uow-tree-media-v1');
+        let matched = await cacheStorage.match(url);
+        if (!matched) { await cacheStorage.add(url); matched = await cacheStorage.match(url); }
+        if (matched) return URL.createObjectURL(await matched.blob());
+    } catch (e) {}
+    return url;
+}
+
+// ── 2. CAMPUS PATHS & ADVANCED SNAP GEOMETRY ──────────────────
+let pathsLayer = null;
+fetch('campus_paths.geojson').then(r => r.json()).then(data => {
+    data.features.forEach(f => {
+        if (f.geometry?.type !== 'LineString') return;
+        const coords = f.geometry.coordinates;
+        for (let i = 0; i < coords.length - 1; i++) {
+            const [lng1,lat1] = coords[i], [lng2,lat2] = coords[i+1];
+            const k1 = `${lat1.toFixed(5)},${lng1.toFixed(5)}`;
+            const k2 = `${lat2.toFixed(5)},${lng2.toFixed(5)}`;
+            nodeCoords[k1] = [lat1, lng1]; nodeCoords[k2] = [lat2, lng2];
+            const d = getDistance(lat1, lng1, lat2, lng2);
+            (networkGraph[k1] ??= []).push({ to: k2, dist: d });
+            (networkGraph[k2] ??= []).push({ to: k1, dist: d });
+        }
+    });
+    pathsLayer = L.geoJSON(data, {
+        style: f => {
+            const hw = f.properties?.highway;
+            return ['footway','path','pedestrian','steps'].includes(hw)
+                ? { color: '#34d399', weight: 1.3, opacity: 0.18, interactive: false }
+                : { color: '#34d399', weight: 1, opacity: 0.1, dashArray: '3,5', interactive: false };
+        }
     }).addTo(map);
+    loadTreeCSV();
+}).catch(() => loadTreeCSV());
 
-    let treeData = [], currentRoute = [], markersMap = {};
-    let routeGroupFull = L.layerGroup().addTo(map);
-    let routeGroupRemaining = L.layerGroup().addTo(map);
-    let endpointMarkersGroup = L.layerGroup().addTo(map);
-    let visitedStops = new Set();
-    let userLoc = null;
-    let networkGraph = {}, nodeCoordinates = {};
+// Math extension: Point-to-Line-Segment squared distance
+function sqDist(x1,y1, x2,y2) { return (x2-x1)**2 + (y2-y1)**2; }
+function distToSegmentSquared(px,py, vx,vy, wx,wy) {
+    const l2 = sqDist(vx,vy,wx,wy);
+    if (l2 === 0) return sqDist(px,py,vx,vy);
+    let t = ((px-vx)*(wx-vx) + (py-vy)*(wy-vy)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return sqDist(px,py, vx + t*(wx-vx), vy + t*(wy-vy));
+}
 
-    function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3, p1 = lat1*Math.PI/180, p2 = lat2*Math.PI/180;
-        const dp = (lat2-lat1)*Math.PI/180, dl = (lon2-lon1)*Math.PI/180;
-        const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
+// Redesigned Snap Logic: Projects GPS point mathematically onto nearest path segment vector
+function snapToNetwork(lat, lng) {
+    let minD = Infinity, bestNodeKey = null;
+    const cosLat = Math.cos(lat * DEG);
+    const px = lng * cosLat, py = lat;
 
-    // ==========================================
-    // 2. CAMPUS PATHS (GeoJSON)
-    // ==========================================
-    let pathsLayer = null;
-    fetch('campus_paths.geojson').then(r => r.json()).then(data => {
-        data.features.forEach(feature => {
-            if (feature.geometry?.type === 'LineString') {
-                const coords = feature.geometry.coordinates;
-                for (let i = 0; i < coords.length - 1; i++) {
-                    const p1 = coords[i], p2 = coords[i+1];
-                    const k1 = `${p1[1].toFixed(5)},${p1[0].toFixed(5)}`;
-                    const k2 = `${p2[1].toFixed(5)},${p2[0].toFixed(5)}`;
-                    nodeCoordinates[k1] = [p1[1], p1[0]];
-                    nodeCoordinates[k2] = [p2[1], p2[0]];
-                    const dist = getDistance(p1[1], p1[0], p2[1], p2[0]);
-                    if (!networkGraph[k1]) networkGraph[k1] = [];
-                    if (!networkGraph[k2]) networkGraph[k2] = [];
-                    networkGraph[k1].push({ to: k2, dist });
-                    networkGraph[k2].push({ to: k1, dist });
-                }
-            }
-        });
+    for (const k1 in networkGraph) {
+        const [lat1, lng1] = nodeCoords[k1];
+        const vx = lng1 * cosLat, vy = lat1;
+        
+        for (const edge of networkGraph[k1]) {
+            const k2 = edge.to;
+            const [lat2, lng2] = nodeCoords[k2];
+            const wx = lng2 * cosLat, wy = lat2;
 
-        // Subtle dark-theme-friendly path rendering
-        pathsLayer = L.geoJSON(data, {
-            style: feat => {
-                const hw = feat.properties?.highway;
-                if (['footway','path','pedestrian','steps'].includes(hw)) {
-                    return { color: '#7ab8e8', weight: 1.2, opacity: 0.13 };
-                }
-                return { color: '#7ab8e8', weight: 1, opacity: 0.07, dashArray: '3,5' };
-            }
-        }).addTo(map);
-
-        loadTreeCSV();
-    }).catch(() => { console.warn('No campus_paths.geojson found.'); loadTreeCSV(); });
-
-    function snapToNetwork(lat, lng) {
-        let minD = Infinity, bestKey = null;
-        for (let key in nodeCoordinates) {
-            const [nLat, nLng] = nodeCoordinates[key];
-            const d = getDistance(lat, lng, nLat, nLng);
-            if (d < minD) { minD = d; bestKey = key; }
-        }
-        return bestKey;
-    }
-
-    function findNetworkPath(startKey, endKey) {
-        if (!networkGraph[startKey] || !networkGraph[endKey]) return null;
-        let distances = {}, previous = {}, queue = new Set();
-        for (let key in networkGraph) { distances[key] = Infinity; queue.add(key); }
-        distances[startKey] = 0;
-        while (queue.size > 0) {
-            let shortestKey = null, minD = Infinity;
-            queue.forEach(k => { if (distances[k] < minD) { minD = distances[k]; shortestKey = k; } });
-            if (!shortestKey || shortestKey === endKey) break;
-            queue.delete(shortestKey);
-            networkGraph[shortestKey].forEach(edge => {
-                const alt = distances[shortestKey] + edge.dist;
-                if (alt < distances[edge.to]) { distances[edge.to] = alt; previous[edge.to] = shortestKey; }
-            });
-        }
-        if (distances[endKey] === Infinity) return null;
-        let path = [], curr = endKey;
-        while (curr) { path.push(nodeCoordinates[curr]); curr = previous[curr]; }
-        return path.reverse();
-    }
-
-    // ==========================================
-    // 3. LOAD CSV & BUILD MARKERS
-    // ==========================================
-    function loadTreeCSV() {
-        Papa.parse('trees.csv', {
-            download: true, header: true, skipEmptyLines: true,
-            complete(results) {
-                treeData = results.data
-                    .filter(r => r['Latitude'] && r['Longitude'])
-                    .map((row, i) => ({
-                        id: i + 1,
-                        lat: parseFloat(row['Latitude']),
-                        lng: parseFloat(row['Longitude']),
-                        name: row['Common Name'] || 'Unknown Tree',
-                        scientific: row['Scientific Name'] || 'Unknown Species',
-                        family: row['Family'] || 'Unknown Family',
-                        img: row['Photo Filename'] ? `photos/${row['Photo Filename']}` : null
-                    }));
-                buildMapMarkers();
-                setRouteMode('recommended');
-            }
-        });
-    }
-
-    // ── Progressive image loader for popup ──────────────────
-    function buildPopupImgHTML(imgSrc, treeId) {
-        if (!imgSrc) {
-            return `<div class="popup-img-wrapper" style="background:#161b22; display:flex; align-items:center; justify-content:center; color:#4e5a66; font-size:2rem;"><i class="bi bi-tree"></i></div>`;
-        }
-        return `
-            <div class="popup-img-wrapper" onclick="openLightbox('${imgSrc}')" id="img-wrap-${treeId}">
-                <div class="popup-img-skeleton" id="skel-${treeId}"></div>
-                <img class="popup-img-blur" id="blur-${treeId}" src="${imgSrc}" alt="">
-                <img class="popup-img-hires" id="hires-${treeId}" src="" alt="Tree photo"
-                     onload="onHiResLoad(${treeId})"
-                     onerror="onHiResError(${treeId})">
-            </div>`;
-    }
-
-    window.onHiResLoad = function(id) {
-        const hires = document.getElementById(`hires-${id}`);
-        const skel = document.getElementById(`skel-${id}`);
-        const blur = document.getElementById(`blur-${id}`);
-        if (hires) hires.classList.add('loaded');
-        if (skel) skel.style.display = 'none';
-        if (blur) { setTimeout(() => { blur.style.opacity = '0'; }, 300); }
-    };
-    window.onHiResError = function(id) {
-        const skel = document.getElementById(`skel-${id}`);
-        if (skel) skel.style.background = '#161b22';
-    };
-
-    function startHiResLoad(treeId, imgSrc) {
-        // Triggered after popup DOM is in page
-        const hires = document.getElementById(`hires-${treeId}`);
-        if (hires && imgSrc) hires.src = imgSrc;
-    }
-
-    function buildMapMarkers() {
-        treeData.forEach(tree => {
-            const iconHTML = `<div id="icon-${tree.id}" style="background:var(--uow-red);width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,0.85);box-shadow:0 0 6px rgba(229,25,55,0.5),0 0 0 4px rgba(229,25,55,0.12);transition:background 0.3s;"></div>`;
-            const customIcon = L.divIcon({ html: iconHTML, className: '', iconSize: [12,12], iconAnchor: [6,6] });
-            const marker = L.marker([tree.lat, tree.lng], { icon: customIcon }).addTo(map);
-
-            const alaLink = `https://bie.ala.org.au/search?q=${encodeURIComponent(tree.scientific)}`;
-            const imgBlock = buildPopupImgHTML(tree.img, tree.id);
-
-            const popupContent = `
-                <div>
-                    ${imgBlock}
-                    <div class="popup-body">
-                        <div class="popup-name" title="${tree.name}">${tree.name}</div>
-                        <div class="popup-scientific">${tree.scientific}</div>
-                        <div class="popup-family"><span>Family: </span>${tree.family}</div>
-                        <div class="popup-coords">
-                            ${tree.lat.toFixed(5)}&deg;S &bull; ${tree.lng.toFixed(5)}&deg;E
-                        </div>
-                        <div class="popup-btn-row">
-                            <a href="${alaLink}" target="_blank" class="btn btn-ala text-decoration-none">
-                                <i class="bi bi-box-arrow-up-right me-1"></i>Learn More at ALA
-                            </a>
-                            <button class="btn btn-visit" id="btn-visit-${tree.id}">
-                                <i class="bi bi-check2-circle me-1"></i>Mark as Visited
-                            </button>
-                        </div>
-                    </div>
-                </div>`;
-
-            const isMobile = window.innerWidth <= 768;
-            marker.bindPopup(popupContent, {
-                autoPanPaddingTopLeft: isMobile ? L.point(10,10) : L.point(380,20),
-                autoPanPaddingBottomRight: isMobile ? L.point(10, window.innerHeight*0.52) : L.point(20,20)
-            });
-
-            markersMap[tree.id] = marker;
-            marker.on('click', () => activateTree(tree.id));
-            marker.on('popupopen', () => {
-                setupVisitButton(tree.id);
-                // Small delay to let popup render into DOM before loading hi-res
-                setTimeout(() => startHiResLoad(tree.id, tree.img), 80);
-            });
-        });
-    }
-
-    // ── Start / Finish endpoint markers ─────────────────────
-    function renderEndpointMarkers() {
-        endpointMarkersGroup.clearLayers();
-        if (currentRoute.length === 0) return;
-
-        const start = currentRoute[0];
-        const finish = currentRoute[currentRoute.length - 1];
-
-        const startIcon = L.divIcon({
-            html: `<div class="endpoint-label" style="color:#4ade80; border-color:rgba(74,222,128,0.35); background:rgba(13,17,23,0.92);">
-                       <span style="font-size:7px;">▶</span> START
-                   </div>`,
-            className: '', iconAnchor: [24, 12]
-        });
-        const finishIcon = L.divIcon({
-            html: `<div class="endpoint-label" style="color:#f87171; border-color:rgba(248,113,113,0.35); background:rgba(13,17,23,0.92);">
-                       <span style="font-size:8px;">⬛</span> FINISH
-                   </div>`,
-            className: '', iconAnchor: [28, 12]
-        });
-
-        L.marker([start.lat, start.lng], { icon: startIcon, zIndexOffset: 500, interactive: false }).addTo(endpointMarkersGroup);
-        if (start.id !== finish.id) {
-            L.marker([finish.lat, finish.lng], { icon: finishIcon, zIndexOffset: 500, interactive: false }).addTo(endpointMarkersGroup);
-        }
-    }
-
-    // ==========================================
-    // 4. ROUTE COMPILATION
-    // ==========================================
-    function setRouteMode(mode) {
-        document.querySelectorAll('.route-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`btn-${mode}`).classList.add('active');
-
-        if (mode === 'recommended') {
-            currentRoute = [...treeData];
-        } else if (mode === 'random') {
-            currentRoute = [...treeData].sort(() => Math.random() - 0.5);
-        } else if (mode === 'auto') {
-            if (!userLoc) { alert('Enable GPS location tracking first.'); setRouteMode('recommended'); return; }
-            let unvisited = [...treeData], currentPoint = userLoc;
-            currentRoute = [];
-            while (unvisited.length > 0) {
-                let nearestIdx = 0, minD = Infinity;
-                unvisited.forEach((pt, idx) => {
-                    const d = getDistance(currentPoint.lat, currentPoint.lng, pt.lat, pt.lng);
-                    if (d < minD) { minD = d; nearestIdx = idx; }
-                });
-                const nextPt = unvisited.splice(nearestIdx, 1)[0];
-                currentRoute.push(nextPt);
-                currentPoint = nextPt;
+            const dSq = distToSegmentSquared(px, py, vx, vy, wx, wy);
+            if (dSq < minD) {
+                minD = dSq;
+                // Hook to nearest true node on this ideal path segment for algorithm tracking
+                const d1 = getDistance(lat, lng, lat1, lng1);
+                const d2 = getDistance(lat, lng, lat2, lng2);
+                bestNodeKey = d1 < d2 ? k1 : k2;
             }
         }
-        renderSidebar();
-        generateSmartRoutes();
-        renderEndpointMarkers();
     }
+    return bestNodeKey || Object.keys(nodeCoords)[0];
+}
 
-    function addSegment(start, end, isNetwork, isActive) {
-        if (!start || !end) return 0;
-        const styleFull = isNetwork
-            ? { color: '#E51937', weight: 3, opacity: 0.12 }
-            : { color: '#ffffff', weight: 1.5, opacity: 0.18, dashArray: '3,6' };
-        const styleActive = isNetwork
-            ? { color: '#E51937', weight: 4, opacity: 0.88, lineCap: 'round' }
-            : { color: '#ff6b8a', weight: 2, opacity: 0.75, dashArray: '4,6' };
-
-        L.polyline([start, end], styleFull).addTo(routeGroupFull);
-        if (isActive) L.polyline([start, end], styleActive).addTo(routeGroupRemaining);
-
-        if (isNetwork && Array.isArray(start[0])) {
-            let dist = 0;
-            for (let i = 0; i < start.length - 1; i++)
-                dist += getDistance(start[i][0], start[i][1], start[i+1][0], start[i+1][1]);
-            return dist;
-        }
-        return getDistance(start[0], start[1], end[0], end[1]);
+const _pathCache = new Map();
+function findNetworkPath(sKey, eKey) {
+    if (!networkGraph[sKey] || !networkGraph[eKey]) return null;
+    const cacheKey = sKey < eKey ? `${sKey}|${eKey}` : `${eKey}|${sKey}`;
+    if (_pathCache.has(cacheKey)) {
+        const cached = _pathCache.get(cacheKey);
+        return (sKey < eKey) ? cached : (cached ? [...cached].reverse() : null);
     }
-
-    function generateSmartRoutes() {
-        routeGroupFull.clearLayers();
-        routeGroupRemaining.clearLayers();
-        let activeDistMeters = 0;
-
-        let nextTargetIndex = 0;
-        if (userLoc) {
-            nextTargetIndex = currentRoute.findIndex(t => !visitedStops.has(t.id));
-            if (nextTargetIndex === -1) nextTargetIndex = currentRoute.length;
+    const distances = {}, previous = {}; const pq = [[0, sKey]];
+    for (const k in networkGraph) distances[k] = Infinity;
+    distances[sKey] = 0;
+    while (pq.length) {
+        pq.sort((a,b) => a[0]-b[0]);
+        const [dist, u] = pq.shift();
+        if (u === eKey) break;
+        if (dist > distances[u]) continue;
+        for (const { to, dist: w } of (networkGraph[u] || [])) {
+            const alt = distances[u] + w;
+            if (alt < distances[to]) { distances[to] = alt; previous[to] = u; pq.push([alt, to]); }
         }
-
-        for (let i = 0; i < currentRoute.length; i++) {
-            const startLat = currentRoute[i].lat, startLng = currentRoute[i].lng;
-
-            if (i === nextTargetIndex && userLoc) {
-                const sKey = snapToNetwork(userLoc.lat, userLoc.lng);
-                const eKey = snapToNetwork(startLat, startLng);
-                if (sKey && eKey) {
-                    activeDistMeters += addSegment([userLoc.lat, userLoc.lng], nodeCoordinates[sKey], false, true);
-                    const netPath = findNetworkPath(sKey, eKey);
-                    if (netPath) activeDistMeters += addSegment(netPath, netPath, true, true);
-                    activeDistMeters += addSegment(nodeCoordinates[eKey], [startLat, startLng], false, true);
-                } else {
-                    activeDistMeters += addSegment([userLoc.lat, userLoc.lng], [startLat, startLng], false, true);
-                }
-            }
-
-            if (i < currentRoute.length - 1) {
-                const endLat = currentRoute[i+1].lat, endLng = currentRoute[i+1].lng;
-                const sKey = snapToNetwork(startLat, startLng);
-                const eKey = snapToNetwork(endLat, endLng);
-                const isActive = i >= nextTargetIndex;
-
-                if (sKey && eKey) {
-                    const d1 = addSegment([startLat, startLng], nodeCoordinates[sKey], false, isActive);
-                    const netPath = findNetworkPath(sKey, eKey);
-                    const d2 = netPath ? addSegment(netPath, netPath, true, isActive) : 0;
-                    const d3 = addSegment(nodeCoordinates[eKey], [endLat, endLng], false, isActive);
-                    if (isActive) activeDistMeters += (d1+d2+d3);
-                } else {
-                    const dFallback = addSegment([startLat, startLng], [endLat, endLng], false, isActive);
-                    if (isActive) activeDistMeters += dFallback;
-                }
-            }
-        }
-
-        if (activeDistMeters === 0 && currentRoute.length > 0 && !userLoc && nextTargetIndex === 0) {
-            document.getElementById('route-stats').innerHTML = `
-                <span><i class="bi bi-signpost-fill"></i> View Map</span>
-                <span><i class="bi bi-clock"></i> Est. Route</span>`;
-        } else {
-            const remDistKm = (activeDistMeters / 1000).toFixed(2);
-            const timeMins = Math.ceil((activeDistMeters / 1000) * 13.5);
-            document.getElementById('route-stats').innerHTML = `
-                <span><i class="bi bi-signpost-fill"></i> ${remDistKm} km left</span>
-                <span><i class="bi bi-clock-history"></i> ${timeMins} mins</span>`;
-        }
-
-        updateProgress();
     }
+    if (distances[eKey] === Infinity) { _pathCache.set(cacheKey, null); return null; }
+    const path = []; let curr = eKey;
+    while (curr) { path.push(nodeCoords[curr]); curr = previous[curr]; }
+    path.reverse(); _pathCache.set(cacheKey, path); return path;
+}
 
-    // ==========================================
-    // 5. PROGRESS BAR
-    // ==========================================
-    function updateProgress() {
-        const total = currentRoute.length;
-        const done = currentRoute.filter(t => visitedStops.has(t.id)).length;
-        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-        document.getElementById('progress-fill').style.width = pct + '%';
-        document.getElementById('progress-text').textContent = `${done} / ${total} visited`;
+// ── 3. CSV + MARKERS + DYNAMIC TOOLTIPS ────────────────────
+function loadTreeCSV() {
+    Papa.parse('trees.csv', {
+        download: true, header: true, skipEmptyLines: true,
+        complete({ data }) {
+            treeData = data
+                .filter(r => r['Latitude'] && r['Longitude'])
+                .map((r, i) => ({
+                    id: i + 1, lat: parseFloat(r['Latitude']), lng: parseFloat(r['Longitude']),
+                    name: r['Common Name'] || 'Unknown Tree', scientific: r['Scientific Name'] || 'Unknown Species',
+                    family: r['Family'] || 'Unknown Family', img: r['Photo Filename'] ? `photos/${r['Photo Filename']}` : null
+                }));
+            buildMapMarkers();
+            setRouteMode('recommended');
+        }
+    });
+}
+
+function getMarkerIcon(id, isActive, isVisited) {
+    let bg = 'var(--uow-red)'; let border = '2px solid rgba(255,255,255,.85)';
+    let shadow = '0 0 5px rgba(229,25,55,.5),0 0 0 3px rgba(229,25,55,.12)';
+    let transform = isActive ? 'scale(1.45)' : 'scale(1)';
+    
+    if (isActive) {
+        bg = '#ffff00'; border = '2px solid #fff';
+        shadow = '0 0 14px #ffff00, 0 0 0 4px rgba(255,255,0,0.4)';
+    } else if (isVisited) {
+        bg = 'var(--accent-green)';
+        shadow = '0 0 5px rgba(46,160,67,.5),0 0 0 3px rgba(46,160,67,.12)';
     }
+    const htmlEl = `<div id="icon-${id}" style="background:${bg}; width:var(--marker-size); height:var(--marker-size); border-radius:50%; border:${border}; box-shadow:${shadow}; transform:${transform}; transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);"></div>`;
+    return L.divIcon({ html: htmlEl, className: '', iconSize: [11,11], iconAnchor: [5,5] });
+}
 
-    // ==========================================
-    // 6. SIDEBAR
-    // ==========================================
-    const stopsList = document.getElementById('stops-list');
+function updateMarkerStyle(id) {
+    if(markersMap[id]) markersMap[id].setIcon(getMarkerIcon(id, activeTreeId === id, visitedStops.has(id)));
+}
 
-    function renderSidebar() {
-        stopsList.innerHTML = '<div class="stops-label">Walk Stops</div>';
-        currentRoute.forEach((tree, index) => {
-            const isVis = visitedStops.has(tree.id);
-            const card = document.createElement('div');
-            card.className = `tree-card ${isVis ? 'visited' : ''}`;
-            card.id = `card-${tree.id}`;
+// ── HTML Injector (No Cosh Logo + Live Distance Data) ──
+function getDetailsHTML(tree) {
+    const ala = `https://bie.ala.org.au/search?q=${encodeURIComponent(tree.scientific)}`;
+    const imgBlock = tree.img
+        ? `<div class="popup-img-wrap" onclick="event.stopPropagation(); openLightbox('${tree.img}')" id="iw-${tree.id}">
+               <div class="popup-skel" id="sk-${tree.id}"></div>
+               <img class="popup-img-blur" id="bl-${tree.id}" src="" alt="">
+               <img class="popup-img-hi" id="hi-${tree.id}" src="" alt="" onload="hiLoad(${tree.id})" onerror="hiErr(${tree.id})">
+           </div>` : '';
 
-            // Thumb: lazy placeholder, swap in real img when visible
-            const thumbId = `thumb-${tree.id}`;
-            const thumbHTML = tree.img
-                ? `<img class="card-thumb" id="${thumbId}" src="" alt="" data-src="${tree.img}" loading="lazy">`
-                : `<div class="card-thumb-placeholder"><i class="bi bi-tree-fill"></i></div>`;
+    const vis = visitedStops.has(tree.id);
+    const btnClass = vis ? 'pb pb-unvisit' : 'pb pb-visit';
+    const btnText = vis ? `<i class="bi bi-arrow-counterclockwise" style="margin-right:4px"></i>Mark Unvisited` : `<i class="bi bi-check2-circle" style="margin-right:4px"></i>Mark as Visited`;
 
-            card.innerHTML = `
-                ${thumbHTML}
-                <div class="card-content">
-                    <div class="card-stop-num">Stop ${index + 1}</div>
-                    <div class="card-name" title="${tree.name}">${tree.name}</div>
-                    <div class="card-scientific">${tree.scientific}</div>
+    const liveDistHtml = userLoc 
+        ? `<span id="dist-${tree.id}" class="popup-dist"><i class="bi bi-geo-alt-fill"></i> ${Math.round(getDistance(userLoc.lat, userLoc.lng, tree.lat, tree.lng))}m away</span>` 
+        : `<span id="dist-${tree.id}" class="popup-dist"></span>`;
+
+    return `
+        <div onclick="event.stopPropagation();" style="border-top:1px solid rgba(255,255,255,0.06); padding-top:6px; margin-top:4px;">
+            <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Tree Detail</div>
+            ${imgBlock}
+            <div class="popup-body">
+                <div class="popup-fam"><span>Family: </span>${tree.family}</div>
+                <div class="popup-coords">
+                    <span>${tree.lat.toFixed(5)}&deg;S &bull; ${tree.lng.toFixed(5)}&deg;E</span>
+                    ${liveDistHtml}
                 </div>
-                ${isVis ? `<i class="bi bi-check-circle-fill card-check" id="check-${tree.id}"></i>` : `<span id="check-${tree.id}" class="d-none"></span>`}
-            `;
-            card.onclick = () => { activateTree(tree.id); map.flyTo([tree.lat, tree.lng], 18); };
-            stopsList.appendChild(card);
-        });
+                <div class="popup-btns">
+                    <button class="${btnClass}" id="bv-${tree.id}">${btnText}</button>
+                    <a href="${ala}" target="_blank" class="pb pb-ala"><i class="bi bi-box-arrow-up-right" style="margin-right:4px"></i>Search ALA</a>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
-        // Lazy-load thumbnails using IntersectionObserver
-        const thumbObserver = new IntersectionObserver((entries) => {
-            entries.forEach(e => {
-                if (e.isIntersecting) {
-                    const img = e.target;
-                    if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
-                    thumbObserver.unobserve(img);
-                }
-            });
-        }, { rootMargin: '50px' });
+window.hiLoad = id => {
+    const hi = document.getElementById(`hi-${id}`); const sk = document.getElementById(`sk-${id}`); const bl = document.getElementById(`bl-${id}`);
+    if (hi) hi.classList.add('loaded'); if (sk) sk.style.display = 'none'; if (bl) setTimeout(() => bl.style.opacity = '0', 250);
+};
+window.hiErr = id => { const sk = document.getElementById(`sk-${id}`); if (sk) { sk.style.animation = 'none'; sk.style.background = '#161b22'; } };
 
-        stopsList.querySelectorAll('.card-thumb[data-src]').forEach(img => thumbObserver.observe(img));
-        updateProgress();
-    }
+function buildMapMarkers() {
+    treeData.forEach(tree => {
+        const marker = L.marker([tree.lat, tree.lng], { icon: getMarkerIcon(tree.id, false, false) }).addTo(map);
+        markersMap[tree.id] = marker;
+        marker.on('click', () => { activateTree(tree.id); map.panTo([tree.lat, tree.lng]); });
+    });
+}
 
-    function activateTree(id) {
-        document.querySelectorAll('.tree-card').forEach(c => c.classList.remove('active'));
-        const card = document.getElementById(`card-${id}`);
-        if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-        markersMap[id].openPopup();
-    }
-
-    function setupVisitButton(id) {
-        const btn = document.getElementById(`btn-visit-${id}`);
-        if (!btn) return;
-        const isVis = visitedStops.has(id);
-        if (isVis) {
-            btn.className = 'btn btn-unvisit';
-            btn.innerHTML = "<i class='bi bi-arrow-counterclockwise me-1'></i>Mark Unvisited";
-        } else {
-            btn.className = 'btn btn-visit';
-            btn.innerHTML = "<i class='bi bi-check2-circle me-1'></i>Mark as Visited";
+// ── 4. ROUTES & FADING LOGIC ─────────────────────────────────
+function setRouteMode(mode) {
+    document.querySelectorAll('.route-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`btn-${mode}`).classList.add('active');
+    
+    if (mode === 'recommended') currentRoute = [...treeData]; 
+    else if (mode === 'random') currentRoute = [...treeData].sort(() => Math.random() - .5); 
+    else if (mode === 'auto') {
+        if (!userLoc) { alert('Enable GPS context configuration first.'); setRouteMode('recommended'); return; }
+        let rem = [...treeData], cur = userLoc; currentRoute = [];
+        while (rem.length) {
+            let ni = 0, md = Infinity;
+            rem.forEach((p, i) => { const d = getDistance(cur.lat, cur.lng, p.lat, p.lng); if (d < md) { md = d; ni = i; } });
+            const np = rem.splice(ni, 1)[0]; currentRoute.push(np); cur = np;
         }
-        btn.onclick = () => {
-            if (visitedStops.has(id)) {
-                visitedStops.delete(id);
-                const el = document.getElementById(`icon-${id}`);
-                if (el) el.style.background = 'var(--uow-red)';
+    }
+    _pathCache.clear(); renderSidebar(); generateSmartRoutes();
+}
+
+function addSegment(start, end, isNet, trackState) {
+    if (!start || !end) return 0;
+    
+    let finalOpacity = trackState === 'faded' ? 0.15 : 0.88;
+    let finalWeight = trackState === 'faded' ? (isNet ? 2 : 1.5) : (isNet ? 4 : 2);
+
+    const sf = isNet ? { color:'#E51937', weight:3, opacity:.08, interactive:false } : { color:'#fff', weight:1.5, opacity:.1, dashArray:'3,6', interactive:false };
+    const sa = isNet ? { color:'#E51937', weight:finalWeight, opacity:finalOpacity, lineCap:'round', interactive:false } : { color:'#ff6b8a', weight:finalWeight, opacity:finalOpacity, dashArray:'4,6', interactive:false };
+                     
+    L.polyline([start, end], sf).addTo(routeGroupFull);
+    L.polyline([start, end], sa).addTo(routeGroupRemaining);
+    
+    if (isNet && Array.isArray(start[0])) {
+        let d = 0; for (let i = 0; i < start.length - 1; i++) d += getDistance(start[i][0], start[i][1], start[i+1][0], start[i+1][1]);
+        return d;
+    }
+    return getDistance(start[0], start[1], end[0], end[1]);
+}
+
+function formatTime(mins) {
+    if (mins >= 60) {
+        const hrs = Math.floor(mins / 60); const rem = mins % 60;
+        return rem > 0 ? `${hrs} hr ${rem} min` : `${hrs} hr`;
+    }
+    return `${mins} min`;
+}
+
+function generateSmartRoutes() {
+    routeGroupFull.clearLayers(); routeGroupRemaining.clearLayers();
+    let activeDist = 0; let nextIdx = 0;
+    if (userLoc) {
+        nextIdx = currentRoute.findIndex(t => !visitedStops.has(t.id));
+        if (nextIdx === -1) nextIdx = currentRoute.length;
+    }
+    for (let i = 0; i < currentRoute.length; i++) {
+        const { lat: sLat, lng: sLng } = currentRoute[i];
+        if (i === nextIdx && userLoc) {
+            const sk = snapToNetwork(userLoc.lat, userLoc.lng); const ek = snapToNetwork(sLat, sLng);
+            if (sk && ek) {
+                activeDist += addSegment([userLoc.lat, userLoc.lng], nodeCoords[sk], false, 'active');
+                const np = findNetworkPath(sk, ek);
+                if (np) activeDist += addSegment(np, np, true, 'active');
+                activeDist += addSegment(nodeCoords[ek], [sLat, sLng], false, 'active');
+            } else { activeDist += addSegment([userLoc.lat, userLoc.lng], [sLat, sLng], false, 'active'); }
+        }
+        if (i < currentRoute.length - 1) {
+            const { lat: eLat, lng: eLng } = currentRoute[i+1];
+            const sk = snapToNetwork(sLat, sLng), ek = snapToNetwork(eLat, eLng);
+            const trackState = i >= nextIdx ? 'active' : 'faded'; 
+            
+            if (sk && ek) {
+                const d1 = addSegment([sLat,sLng], nodeCoords[sk], false, trackState);
+                const np = findNetworkPath(sk, ek);
+                const d2 = np ? addSegment(np, np, true, trackState) : 0;
+                const d3 = addSegment(nodeCoords[ek], [eLat,eLng], false, trackState);
+                if (trackState === 'active') activeDist += d1+d2+d3;
             } else {
-                visitedStops.add(id);
-                const el = document.getElementById(`icon-${id}`);
-                if (el) el.style.background = 'var(--accent-green)';
+                const df = addSegment([sLat,sLng], [eLat,eLng], false, trackState);
+                if (trackState === 'active') activeDist += df;
             }
-            map.closePopup();
-            renderSidebar();
-            generateSmartRoutes();
-        };
+        }
     }
+    if (activeDist === 0 && currentRoute.length && !userLoc && nextIdx === 0) {
+        document.getElementById('stat-dist').textContent = "Map View";
+        document.getElementById('stat-time').textContent = "--";
+    } else {
+        const km = (activeDist/1000).toFixed(2);
+        const mins = Math.ceil((activeDist/1000)*13.5);
+        document.getElementById('stat-dist').textContent = `${km} km`;
+        document.getElementById('stat-time').textContent = formatTime(mins);
+    }
+    updateProgress();
+}
 
-    // ==========================================
-    // 7. LIGHTBOX
-    // ==========================================
-    window.openLightbox = function(src) {
-        const lb = document.getElementById('lightbox');
-        const img = document.getElementById('lightbox-img');
-        img.src = src;
-        lb.style.display = 'flex';
-        requestAnimationFrame(() => lb.style.opacity = '1');
-    };
-    window.closeLightbox = function() {
-        const lb = document.getElementById('lightbox');
-        lb.style.opacity = '0';
-        setTimeout(() => lb.style.display = 'none', 300);
-    };
+function updateProgress() {
+    const total = currentRoute.length;
+    const done = currentRoute.filter(t => visitedStops.has(t.id)).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = `${done}/${total}`;
+}
 
-    // ==========================================
-    // 8. GPS TRACKING
-    // ==========================================
-    let userMarker = null, watchId = null, isTracking = false;
-    const gpsBtn = document.getElementById('gps-toggle');
-
-    gpsBtn.addEventListener('click', function () {
-        if (!isTracking) {
-            if (!navigator.geolocation) return alert('Geolocation not supported.');
-            isTracking = true; this.classList.add('active');
-            watchId = navigator.geolocation.watchPosition(pos => {
-                userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                if (!userMarker) {
-                    userMarker = L.circleMarker([userLoc.lat, userLoc.lng], {
-                        radius: 7, color: '#fff', weight: 2, fillColor: '#3b82f6', fillOpacity: 1
-                    }).addTo(map);
-                    map.flyTo([userLoc.lat, userLoc.lng], 17);
-                } else {
-                    userMarker.setLatLng([userLoc.lat, userLoc.lng]);
-                }
-                generateSmartRoutes();
-            }, null, { enableHighAccuracy: true });
+// ── 5. LIVE PROXIMITY TOOLTIPS & DISTANCES ─────────────────
+function updateDynamicGPSContexts() {
+    if (!userLoc) return;
+    
+    // Proximity Map Name Reveal (under 25 meters)
+    treeData.forEach(t => {
+        let d = getDistance(userLoc.lat, userLoc.lng, t.lat, t.lng);
+        let marker = markersMap[t.id];
+        if (!marker) return;
+        
+        if (d <= 25) {
+            if (!marker.getTooltip()) marker.bindTooltip(t.name, {permanent: true, direction: 'top', className: 'nearby-tree-label', offset: [0, -5]}).openTooltip();
         } else {
-            isTracking = false; this.classList.remove('active'); userLoc = null;
-            navigator.geolocation.clearWatch(watchId);
-            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-            generateSmartRoutes();
+            if (marker.getTooltip()) marker.unbindTooltip();
         }
     });
 
-    document.getElementById('btn-paths').addEventListener('click', function () {
-        if (!pathsLayer) return;
-        if (map.hasLayer(pathsLayer)) { map.removeLayer(pathsLayer); this.classList.remove('active'); }
-        else { map.addLayer(pathsLayer); this.classList.add('active'); }
+    // Update active tree card live distance
+    if (activeTreeId) {
+        const distNode = document.getElementById(`dist-${activeTreeId}`);
+        const activeTreeObj = treeData.find(x => x.id === activeTreeId);
+        if (distNode && activeTreeObj) {
+            let currentDist = Math.round(getDistance(userLoc.lat, userLoc.lng, activeTreeObj.lat, activeTreeObj.lng));
+            distNode.innerHTML = `<i class="bi bi-geo-alt-fill"></i> ${currentDist}m away`;
+        }
+    }
+}
+
+// ── 6. SIDEBAR RENDERING ─────────────────────────────────────
+const stopsList = document.getElementById('stops-list');
+
+function renderSidebar() {
+    const frag = document.createDocumentFragment();
+    const label = document.createElement('div');
+    label.className = 'stops-label'; label.textContent = 'Walk Stops';
+    frag.appendChild(label);
+
+    currentRoute.forEach((tree, idx) => {
+        const vis = visitedStops.has(tree.id);
+        const isActive = tree.id === activeTreeId;
+        const card = document.createElement('div');
+        card.className = `tree-card${vis ? ' visited' : ''}${isActive ? ' active' : ''}`;
+        card.id = `card-${tree.id}`;
+
+        let cardInnerHTML = `
+            <div class="tree-card-header">
+                <div class="card-content">
+                    <div class="card-name" title="${tree.name}">${idx+1}. ${tree.name}</div>
+                    <div class="card-sci">${tree.scientific}</div>
+                </div>
+                ${vis ? `<i class="bi bi-check-circle-fill card-check" id="ck-${tree.id}"></i>` : `<span id="ck-${tree.id}" style="display:none"></span>`}
+            </div>
+        `;
+
+        if (isActive) cardInnerHTML += `<div class="tree-card-details" style="width:100%;">${getDetailsHTML(tree)}</div>`;
+        card.innerHTML = cardInnerHTML;
+
+        card.onclick = () => { activateTree(tree.id); map.flyTo([tree.lat, tree.lng], 18, {animate: true, duration: 0.6}); };
+        frag.appendChild(card);
     });
+
+    stopsList.innerHTML = ''; stopsList.appendChild(frag);
+
+    if (activeTreeId) {
+        setupSidebarVisitBtn(activeTreeId);
+        const tree = treeData.find(t => t.id === activeTreeId);
+        if (tree && tree.img) {
+            getOptimizedImageSrc(tree.img).then(src => {
+                const hi = document.getElementById(`hi-${activeTreeId}`);
+                const bl = document.getElementById(`bl-${activeTreeId}`);
+                if (hi) hi.src = src; if (bl) bl.src = src;
+            });
+        }
+    }
+    updateProgress();
+}
+
+function activateTree(id) {
+    const prevActiveId = activeTreeId;
+    activeTreeId = id;
+    
+    if (prevActiveId) updateMarkerStyle(prevActiveId);
+    if (activeTreeId) updateMarkerStyle(activeTreeId);
+
+    document.querySelectorAll('.tree-card').forEach(c => {
+        c.classList.remove('active');
+        const details = c.querySelector('.tree-card-details');
+        if (details) details.remove();
+    });
+    
+    const card = document.getElementById(`card-${id}`);
+    if (card) {
+        card.classList.add('active');
+        const tree = treeData.find(t => t.id === id);
+        if (tree) {
+            let detailsDiv = card.querySelector('.tree-card-details');
+            if (!detailsDiv) {
+                detailsDiv = document.createElement('div'); detailsDiv.className = 'tree-card-details';
+                detailsDiv.style.width = '100%'; card.appendChild(detailsDiv);
+            }
+            detailsDiv.innerHTML = getDetailsHTML(tree);
+            setupSidebarVisitBtn(id);
+            
+            if (tree.img) {
+                getOptimizedImageSrc(tree.img).then(src => {
+                    const hi = document.getElementById(`hi-${id}`); const bl = document.getElementById(`bl-${id}`);
+                    if (hi) hi.src = src; if (bl) bl.src = src;
+                });
+            }
+        }
+        card.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+}
+
+function setupSidebarVisitBtn(id) {
+    const btn = document.getElementById(`bv-${id}`);
+    if (!btn) return;
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        if (visitedStops.has(id)) visitedStops.delete(id); else visitedStops.add(id);
+        updateMarkerStyle(id); renderSidebar(); generateSmartRoutes();
+    };
+}
+
+// ── 7. LIGHTBOX ──────────────────────────────────────────────
+window.openLightbox = async src => {
+    const lb = document.getElementById('lightbox');
+    document.getElementById('lightbox-img').src = await getOptimizedImageSrc(src);
+    lb.style.display = 'flex'; requestAnimationFrame(() => lb.style.opacity = '1');
+};
+window.closeLightbox = () => {
+    const lb = document.getElementById('lightbox');
+    lb.style.opacity = '0'; setTimeout(() => lb.style.display = 'none', 250);
+};
+
+// ── 8. GPS TRACKING ──────────────────────────────────────────
+let userMarker = null, watchId = null, tracking = false;
+document.getElementById('gps-toggle').addEventListener('click', function() {
+    if (!tracking) {
+        if (!navigator.geolocation) return alert('Geolocation not supported.');
+        tracking = true; this.classList.add('active');
+        watchId = navigator.geolocation.watchPosition(pos => {
+            userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            if (!userMarker) {
+                userMarker = L.circleMarker([userLoc.lat, userLoc.lng], { radius:7, color:'#fff', weight:2, fillColor:'#3b82f6', fillOpacity:1, zIndexOffset:1000 }).addTo(map);
+                map.flyTo([userLoc.lat, userLoc.lng], 19, {animate: true});
+            } else { userMarker.setLatLng([userLoc.lat, userLoc.lng]); }
+            
+            updateDynamicGPSContexts();
+            generateSmartRoutes();
+        }, null, { enableHighAccuracy: true });
+    } else {
+        tracking = false; this.classList.remove('active'); userLoc = null;
+        navigator.geolocation.clearWatch(watchId);
+        if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+        generateSmartRoutes();
+        // Clear proximity labels
+        treeData.forEach(t => { const m = markersMap[t.id]; if (m && m.getTooltip()) m.unbindTooltip(); });
+    }
+});
+
+document.getElementById('satellite-toggle').addEventListener('click', function() {
+    if (map.hasLayer(esriSatellite)) { map.removeLayer(esriSatellite); this.classList.remove('active'); } 
+    else { map.addLayer(esriSatellite); this.classList.add('active'); }
+});
+document.getElementById('btn-paths').addEventListener('click', function() {
+    if (!pathsLayer) return;
+    if (map.hasLayer(pathsLayer)) { map.removeLayer(pathsLayer); this.classList.remove('active'); } 
+    else { map.addLayer(pathsLayer); this.classList.add('active'); }
+});
 </script>
 </body>
 </html>
