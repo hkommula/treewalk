@@ -18,7 +18,7 @@
             --accent-green: #2ea043; --accent-blue: #3b82f6;
             --border-subtle: rgba(255,255,255,0.06); --border-soft: rgba(255,255,255,0.1);
             --card-bg: rgba(255,255,255,0.025); --card-bg-hover: rgba(255,255,255,0.055);
-            --marker-size: 11px; /* Dynamically controlled by Zoom */
+            --marker-size: 9px; /* Dynamically controlled by Zoom */
         }
         *,*::before,*::after{box-sizing:border-box}
         body,html{margin:0;padding:0;height:100%;overflow:hidden;
@@ -29,10 +29,10 @@
         /* ── Modern Minimalist Panel ── */
         #ui-panel{
             position:absolute;top:2vh;left:1vw;
-            width:clamp(300px, 28vw, 400px);height:96vh;
+            width:clamp(320px, 27vw, 390px);height:96vh;
             background:var(--panel-bg);
             backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-            border:1px solid var(--border-subtle);border-radius:14px;
+            border:1px solid var(--border-subtle);border-radius:12px;
             z-index:1000;display:flex;flex-direction:column;
             box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 0 0.5px rgba(255,255,255,0.04);
             overflow:hidden;
@@ -40,7 +40,7 @@
 
         /* Mobile Drag Handle */
         #drag-handle-container {
-            display: none; padding: 12px 0 4px; width: 100%; cursor: grab; background: rgba(255,255,255,0.015);
+            display: none; padding: 12px 0 4px; width: 100%; cursor: grab; touch-action:none; background: rgba(255,255,255,0.015);
         }
         #drag-handle {
             width: 12vw; height: 5px; background: rgba(255,255,255,0.2);
@@ -48,24 +48,30 @@
         }
 
         /* ── Ultra-Compact Header ── */
-        .panel-header{position:relative; padding:1.5vh 3vw; background:rgba(255,255,255,0.015);}
-        @media (min-width: 769px) { .panel-header { padding: 1.5vh 1.5vw; } }
+        .panel-header{position:relative; padding:10px 12px 12px; background:linear-gradient(180deg,rgba(13,18,25,.97),rgba(9,13,19,.93));
+            border-bottom:1px solid rgba(255,255,255,.075);box-shadow:inset 0 -1px 0 rgba(229,25,55,.18);}
+        @media (min-width: 769px) { .panel-header { padding: 10px 12px 12px; } }
         
-        .header-top {display:flex; justify-content:space-between; align-items:center; margin-bottom:1vh;}
-        .uow-title{color:var(--text-main);font-weight:800;letter-spacing:-.5px;
-            font-size:1.1rem;margin:0; line-height:1;}
-        .uow-title span{color:var(--uow-red)}
+        .header-top {display:grid;grid-template-columns:minmax(72px,auto) minmax(0,1fr) auto;gap:8px;align-items:center;margin-bottom:8px;}
+        .uow-title{color:var(--text-main);font-weight:900;letter-spacing:0;
+            font-size:1.06rem;margin:0;line-height:.92;align-self:center;}
+        .uow-title span{color:var(--uow-red);display:block;}
         
-        .route-controls{display:flex;gap:1vw; background:rgba(0,0,0,0.4); padding:0.5vh; border-radius:6px; border:1px solid var(--border-subtle);}
-        .route-btn{font-size:0.7rem;font-weight:700;padding:0.6vh 1.5vw; border-radius:4px;
+        .route-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;background:rgba(255,255,255,0.025);padding:3px;border-radius:999px;border:1px solid rgba(255,255,255,.055);}
+        .route-btn{font-size:0.62rem;font-weight:850;padding:6px 8px;border-radius:999px;
             border:none;background:transparent;color:var(--text-muted);cursor:pointer;
-            transition:background .15s,color .15s;white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;}
+            transition:background .15s,color .15s,box-shadow .15s;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em;}
         .route-btn:hover{color:var(--text-main)}
-        .route-btn.active{background:var(--uow-red);color:#fff; box-shadow:0 2px 8px rgba(229,25,55,.4)}
+        .route-btn.active{background:var(--uow-red);color:#fff; box-shadow:0 2px 7px rgba(229,25,55,.28)}
+        .about-this-btn{height:30px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.035);
+            color:var(--text-muted);border-radius:999px;padding:0 9px;font-size:.62rem;font-weight:850;
+            text-transform:uppercase;letter-spacing:.03em;cursor:pointer;white-space:nowrap;}
+        .about-this-btn:hover{color:var(--text-main);background:rgba(255,255,255,.07);}
 
-        .header-stats {display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); font-weight:600;}
-        .stat-item {display:flex; align-items:center; gap:0.5vw; background:rgba(255,255,255,0.03); padding:0.6vh 1.5vw; border-radius:6px; border:1px solid var(--border-subtle);}
-        .stat-item i {color:var(--uow-red); font-size:0.85rem;}
+        .header-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;font-size:0.68rem;color:var(--text-muted);font-weight:750;}
+        .stat-item{min-height:32px;display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(255,255,255,0.028);padding:5px 6px;border:1px solid rgba(255,255,255,.05);border-radius:8px;}
+        .stat-item i{color:var(--uow-red);font-size:0.75rem;flex:0 0 auto;opacity:.9;}
+        .stat-item span:last-child{min-width:0;text-align:center;line-height:1.2;overflow-wrap:anywhere;}
         
         .progress-track{position:absolute; bottom:0; left:0; width:100%; height:3px; background:rgba(255,255,255,0.05);}
         .progress-fill{height:100%;background:linear-gradient(90deg,var(--uow-red),#ff5370);
@@ -82,7 +88,7 @@
             letter-spacing:.8px;color:var(--text-dim);padding:0.5vh 1vw 1vh;}
         
         .tree-card{background:var(--card-bg);border:1px solid var(--border-subtle);
-            border-radius:9px;padding:1.2vh 3vw;margin-bottom:0.8vh;cursor:pointer;
+            border-radius:8px;padding:1.2vh 3vw;margin-bottom:0.8vh;cursor:pointer;
             display:flex;flex-direction:column;align-items:stretch;gap:4px;
             transition:background .15s,border-color .15s;}
         @media (min-width: 769px) { .tree-card { padding: 1.2vh 1vw; } }
@@ -99,39 +105,53 @@
 
         /* ── Standalone Detail View ── */
         #tree-detail-view { display: none; flex-direction: column; height: 100%; }
+        .detail-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
         .back-btn {
-            background: transparent; color: var(--accent-blue); border: none; font-size: 0.85rem; font-weight: 600;
-            cursor: pointer; display: flex; align-items: center; gap: 5px; padding: 0 0 1.5vh 0; border-bottom: 1px solid var(--border-subtle);
-            margin-bottom: 1.5vh;
+            background:rgba(59,130,246,.08); color: var(--accent-blue); border:1px solid rgba(59,130,246,.16); font-size: 0.68rem; font-weight: 800;
+            cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding:5px 8px;border-radius:999px;
+            flex:0 0 auto;
         }
-        .back-btn:hover { color: #60a5fa; }
+        .back-btn:hover { color: #93c5fd;background:rgba(59,130,246,.12); }
+        .detail-mini-coords{min-width:0;text-align:right;font-size:.66rem;color:var(--text-muted);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .detail-mini-dist{font-size:.6rem;color:#2dd4bf;font-weight:850;}
+        .detail-mini-help{font-size:.58rem;color:rgba(125,138,150,.72);font-weight:700;}
         
-        .detail-title { font-size: 1.3rem; font-weight: 800; color: var(--text-main); line-height: 1.2; }
-        .detail-sci { font-size: 0.9rem; color: var(--text-muted); font-style: italic; margin-top: 4px; margin-bottom: 2vh; }
+        .detail-card{background:transparent;border:0;border-radius:0;padding:4px 0 0;}
+        .detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border-subtle);padding-bottom:10px;margin-bottom:10px;}
+        .detail-head > div:first-child{min-width:0;}
+        .detail-title { font-size: 1.05rem; font-weight: 850; color: var(--text-main); line-height: 1.15; margin:0; overflow-wrap:anywhere; }
+        .detail-sci { font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-top: 3px; line-height:1.2; }
+        .detail-badge{flex:0 0 auto;color:var(--accent-green);background:rgba(46,160,67,.1);border:1px solid rgba(46,160,67,.26);border-radius:999px;padding:3px 6px;font-size:.62rem;font-weight:800;text-transform:uppercase;}
 
-        .popup-body{padding:1vh 0}
-        .popup-fam{font-size:.85rem;color:var(--text-main);margin-bottom:1vh}
+        .popup-body{padding:0}
+        .popup-fam{font-size:.8rem;color:var(--text-main);margin-bottom:8px}
         .popup-fam span{color:var(--text-muted)}
-        .popup-coords{background:rgba(0,0,0,.25);padding:1vh 2vw;border-radius:6px;
-            font-family:monospace;font-size:.75rem;display:flex; justify-content:space-between;
-            color:var(--text-dim);margin-bottom:1.5vh; border:1px solid var(--border-subtle)}
-        @media (min-width: 769px) { .popup-coords { padding: 1vh 1vw; } }
-        .popup-dist{color:var(--accent-blue); font-weight:bold;}
-        
-        .popup-btns{display:flex;gap:2vw; margin-bottom: 2vh;}
-        @media (min-width: 769px) { .popup-btns { gap: 0.5vw; } }
-        .popup-btns .pb{flex:1; font-size:.8rem; padding:1.2vh; border-radius:6px;
+        .feature-info{font-size:.76rem;line-height:1.35;color:var(--text-muted);background:rgba(255,255,255,.02);
+            border:1px solid rgba(255,255,255,.045);border-radius:6px;padding:8px 10px;margin-bottom:10px;}
+        .feature-info .about-title{display:block;color:rgba(232,237,243,.86);font-size:.68rem;font-weight:800;text-transform:uppercase;margin-bottom:6px;}
+        .about-row{display:grid;grid-template-columns:58px minmax(0,1fr);gap:7px;align-items:start;}
+        .about-row + .about-row{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.035);}
+        .about-key{color:rgba(125,138,150,.58);font-weight:800;text-transform:uppercase;font-size:.62rem;white-space:nowrap;}
+        .about-value{min-width:0;overflow-wrap:anywhere;color:rgba(232,237,243,.74);}
+        .popup-btns{display:flex;gap:8px; margin-bottom:0;}
+        @media (min-width: 769px) { .popup-btns { gap: 8px; } }
+        .popup-btns .pb{flex:1; font-size:.76rem; padding:9px 10px; border-radius:6px;
             font-weight:600; cursor:pointer; border:none; text-align:center;
-            text-decoration:none; display:block; white-space:nowrap;}
-        .pb-ala{border:1px solid rgba(255,255,255,.14)!important;color:var(--text-muted);
-            background:transparent;transition:background .15s,color .15s}
-        .pb-ala:hover{background:rgba(255,255,255,.08);color:var(--text-main)}
+            text-decoration:none; display:block; white-space:nowrap;min-width:0;}
         .pb-visit{background:var(--accent-green);color:#fff}
         .pb-unvisit{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)!important;color:var(--text-muted)}
+        .more-info{margin-bottom:10px;}
+        .more-info-title{display:block;color:rgba(232,237,243,.78);font-size:.68rem;font-weight:800;text-transform:uppercase;margin-bottom:6px;}
+        .more-info-links{display:flex;flex-wrap:wrap;gap:5px;}
+        .more-info-link{display:inline-flex;align-items:center;gap:4px;width:max-content;max-width:100%;padding:5px 7px;border-radius:999px;
+            border:1px solid rgba(255,255,255,.08);color:rgba(232,237,243,.76);background:rgba(255,255,255,.025);
+            text-decoration:none;font-size:.64rem;font-weight:700;line-height:1;white-space:nowrap;}
+        .more-info-link:hover{color:#fff;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);}
 
         /* ── Image Viewer inside Detail ── */
-        .popup-img-wrap{position:relative;width:100%;height:22vh; min-height: 160px; border-radius:8px;
-            overflow:hidden;cursor:zoom-in;background:#1a1f26; margin-top:1vh;}
+        .popup-img-wrap{position:relative;width:100%;height:clamp(130px, 20vh, 190px); min-height: 120px; border-radius:8px;
+            overflow:hidden;cursor:zoom-in;background:#1a1f26; margin:0 0 10px;}
         .popup-img-blur{position:absolute;inset:0;width:100%;height:100%;
             object-fit:cover;filter:blur(10px) brightness(.7);transform:scale(1.08);
             transition:opacity .3s ease}
@@ -144,17 +164,36 @@
         .map-controls{position:absolute;top:2vh;right:2vw;z-index:1000;
             display:flex;flex-direction:column;gap:1vh; transition:opacity 0.3s ease;}
         .icon-btn{background:var(--panel-bg);color:var(--text-main);
-            border:1px solid var(--border-soft);border-radius:10px;
-            width:clamp(40px, 4vw, 50px);height:clamp(40px, 4vw, 50px);cursor:pointer;display:flex;align-items:center;
-            justify-content:center;font-size:1.2rem;
+            border:1px solid var(--border-soft);border-radius:8px;
+            width:clamp(38px, 3.5vw, 46px);height:clamp(38px, 3.5vw, 46px);cursor:pointer;display:flex;align-items:center;
+            justify-content:center;font-size:1.08rem;
             backdrop-filter:blur(18px);box-shadow:0 4px 14px rgba(0,0,0,.45);
             transition:background .15s}
         .icon-btn:hover{background:rgba(255,255,255,.12)}
         .icon-btn.active{background:var(--uow-red);border-color:transparent;color:#fff;}
+        .icon-btn i{pointer-events:none;}
+        #gps-toggle{position:relative;}
+        #gps-toggle > i{transform:translate(-1px,1px);}
+        #gps-toggle.locating,#gps-toggle.gps-active{background:var(--panel-bg);border-color:var(--border-soft);color:var(--text-main);}
+        .gps-status-light{position:absolute;top:8px;right:9px;width:5px;height:5px;border-radius:50%;
+            background:rgba(255,255,255,.24);box-shadow:0 0 0 1px rgba(0,0,0,.45);pointer-events:none;}
+        #gps-toggle.locating .gps-status-light{background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.18);animation:gps-light-pulse .85s ease-in-out infinite;}
+        #gps-toggle.gps-active .gps-status-light{background:#86efac;box-shadow:0 0 0 3px rgba(46,160,67,.22);}
+        .gps-prompt{position:absolute;top:2vh;right:calc(2vw + clamp(38px, 3.5vw, 46px) + 10px);z-index:1001;
+            width:min(280px,calc(100vw - 96px));background:rgba(13,17,23,.94);border:1px solid rgba(255,255,255,.08);
+            border-radius:12px;padding:11px;box-shadow:0 14px 34px rgba(0,0,0,.55);backdrop-filter:blur(18px);
+            opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .18s,transform .18s;}
+        .gps-prompt.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+        .gps-prompt-title{font-size:.76rem;font-weight:850;color:var(--text-main);margin-bottom:3px;}
+        .gps-prompt-text{font-size:.68rem;line-height:1.35;color:var(--text-muted);margin-bottom:9px;}
+        .gps-prompt-actions{display:flex;gap:6px;justify-content:flex-end;}
+        .gps-prompt-btn{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text-muted);
+            border-radius:999px;padding:6px 9px;font-size:.66rem;font-weight:800;cursor:pointer;}
+        .gps-prompt-btn.primary{background:var(--uow-red);border-color:transparent;color:#fff;}
 
         /* MarkerCluster Overrides */
-        .marker-cluster { background-color: rgba(229,25,55,0.6); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
-        .marker-cluster div { background-color: var(--uow-red); color: white; font-weight: bold; border-radius: 50%; width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-size: 0.8rem; }
+        .marker-cluster { background-color: rgba(229,25,55,0.45); border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .marker-cluster div { background-color: var(--uow-red); color: white; font-weight: bold; border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 10px rgba(0,0,0,0.45); font-size: 0.72rem; }
 
         /* Leaflet Overrides */
         .leaflet-control-attribution{background:rgba(13,17,23,.75)!important;color:#4e5a66!important;font-size:.65rem!important}
@@ -168,6 +207,10 @@
         }
         .leaflet-tooltip.nearby-tree-label {background: transparent; border: none; box-shadow: none; padding: 0;}
         .leaflet-tooltip-top.nearby-tree-label::before {border-top-color: var(--accent-green);}
+        .route-endpoint-label{background:rgba(13,17,23,.62)!important;border:1px solid rgba(255,255,255,.08)!important;
+            color:rgba(232,237,243,.78)!important;border-radius:999px!important;padding:2px 6px!important;font-size:.62rem!important;
+            font-weight:800!important;letter-spacing:.02em;text-transform:uppercase;box-shadow:0 4px 10px rgba(0,0,0,.25)!important;}
+        .leaflet-tooltip-top.route-endpoint-label::before{border-top-color:rgba(13,17,23,.62)!important;}
 
         /* ── Lightbox ── */
         #lightbox{display:none;position:fixed;z-index:9999;inset:0;
@@ -179,16 +222,45 @@
             color:rgba(255,255,255,.5);cursor:pointer;transition:color .15s;line-height:1}
 
         /* ── Mobile Viewports & Draggable Sheet ── */
-        @media(max-width:768px){
+        @keyframes gps-light-pulse{50%{transform:scale(1.45);box-shadow:0 0 0 5px rgba(250,204,21,.15)}}
+
+        @media(max-width:1024px), (pointer:coarse){
             #drag-handle-container { display: block; }
             #ui-panel{top:auto;bottom:0;left:0;width:100vw;height:45vh;
                 border-radius:20px 20px 0 0;border:none; border-top:1px solid var(--border-subtle);
                 transition: height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);}
             #map{height:100vh}
             .map-controls{top:2vh;right:2vw}
-            .panel-header{padding:0 4vw 1.5vh; border-bottom: 1px solid var(--border-soft);}
+            .icon-btn{width:38px;height:38px;font-size:1rem;}
+            .map-controls{gap:8px;}
+            #gps-toggle > i{transform:translate(-2px,2px) scale(.95);}
+            .gps-status-light{right:5px;top:5px;width:5px;height:5px;}
+            .gps-prompt{top:12px;right:54px;width:min(270px,calc(100vw - 72px));}
+            .panel-header{padding:0 4vw 12px;}
+            .header-top{grid-template-columns:70px 1fr;gap:8px;margin-bottom:8px;}
+            .uow-title{font-size:1rem;}
+            .header-stats{font-size:0.64rem;gap:4px;}
+            .stat-item{min-height:30px;padding:4px 5px;}
             .tree-card { padding: 1.5vh 4vw; }
-            .route-btn { font-size: 0.8rem; padding: 1vh 3vw;}
+            .route-btn { font-size: 0.6rem; padding: 5px 6px;}
+            .panel-body{padding:12px 4vw calc(12px + env(safe-area-inset-bottom));}
+            .detail-card{padding:2px 0 0;}
+            .detail-head{padding-bottom:8px;margin-bottom:8px;}
+            .detail-mini-coords{font-size:.58rem;max-width:48vw;}
+            .detail-mini-dist{font-size:.56rem;}
+            .detail-mini-help{font-size:.54rem;}
+            .popup-btns .pb{font-size:.74rem;padding:9px 8px;}
+            .more-info-link{font-size:.62rem;padding:5px 6px;}
+            .popup-img-wrap{height:clamp(108px, 16vh, 150px);min-height:108px;}
+        }
+        @media(max-width:360px){
+            .header-top{grid-template-columns:1fr;gap:8px;}
+            .uow-title span{display:inline;}
+            .header-stats{font-size:.6rem;}
+            .stat-item{min-height:28px;padding:4px;}
+            .popup-btns .pb{font-size:.68rem;padding:8px 6px;}
+            .about-row{grid-template-columns:52px minmax(0,1fr);}
+            .detail-badge{display:none;}
         }
     </style>
 </head>
@@ -210,7 +282,7 @@
         </div>
         <div class="header-stats">
             <span class="stat-item" title="Progress"><i class="bi bi-check2-circle"></i> <span id="progress-text">0/0</span></span>
-            <span class="stat-item" title="Distance Left"><i class="bi bi-ruler"></i> <span id="stat-dist">-- km</span></span>
+            <span class="stat-item" title="Distance Left"><i class="bi bi-signpost-split"></i> <span id="stat-dist">-- km</span></span>
             <span class="stat-item" title="Estimated Time"><i class="bi bi-clock-history"></i> <span id="stat-time">-- min</span></span>
         </div>
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
@@ -224,14 +296,21 @@
             </div>
         </div>
         <div id="tree-detail-view">
-            <button class="back-btn" onclick="backToList()"><i class="bi bi-chevron-left"></i> Back to Tour List</button>
+            <div class="detail-nav">
+                <button class="back-btn" onclick="backToList()"><i class="bi bi-chevron-left"></i> Back to Tour List</button>
+                <span id="detail-mini-coords" class="detail-mini-coords"></span>
+            </div>
             <div id="detail-content-area"></div>
         </div>
     </div>
 </div>
 
 <div class="map-controls">
+    <button id="home-view" class="icon-btn" title="Home view">
+        <i class="bi bi-house-door"></i>
+    </button>
     <button id="gps-toggle" class="icon-btn" title="Track my location">
+        <span class="gps-status-light" aria-hidden="true"></span>
         <i class="bi bi-crosshair"></i>
     </button>
     <button id="satellite-toggle" class="icon-btn" title="Toggle Satellite Overlay">
@@ -240,6 +319,15 @@
     <button id="btn-paths" class="icon-btn active" title="Toggle Campus Paths">
         <i class="bi bi-signpost-split"></i>
     </button>
+</div>
+
+<div id="gps-prompt" class="gps-prompt" role="dialog" aria-live="polite" aria-label="Enable GPS">
+    <div class="gps-prompt-title">Use GPS for this walk?</div>
+    <div class="gps-prompt-text">Show your distance to selected trees and route from your current location.</div>
+    <div class="gps-prompt-actions">
+        <button id="gps-prompt-dismiss" class="gps-prompt-btn" type="button">Not now</button>
+        <button id="gps-prompt-enable" class="gps-prompt-btn primary" type="button">Enable GPS</button>
+    </div>
 </div>
 
 <div id="lightbox" onclick="closeLightbox()">
@@ -258,40 +346,52 @@ const uiPanel = document.getElementById('ui-panel');
 const dragHandleContainer = document.getElementById('drag-handle-container');
 let startY, startHeight, isDragging = false;
 
-dragHandleContainer.addEventListener('touchstart', (e) => {
-    if (window.innerWidth > 768) return;
-    startY = e.touches[0].clientY;
+function isSheetLayout() {
+    return window.innerWidth <= 1024 || window.matchMedia('(pointer: coarse)').matches;
+}
+
+dragHandleContainer.addEventListener('pointerdown', (e) => {
+    if (!isSheetLayout()) return;
+    startY = e.clientY;
     startHeight = uiPanel.getBoundingClientRect().height;
     isDragging = true;
+    dragHandleContainer.setPointerCapture?.(e.pointerId);
     uiPanel.style.transition = 'none'; // Smooth follow finger
-}, { passive: true });
+});
 
-document.addEventListener('touchmove', (e) => {
+document.addEventListener('pointermove', (e) => {
     if (!isDragging) return;
-    const dy = startY - e.touches[0].clientY;
+    const dy = startY - e.clientY;
     let newHeight = startHeight + dy;
     
-    // Bounds for relative scaling (15% to 85% of screen height)
-    const minH = window.innerHeight * 0.15;
-    const maxH = window.innerHeight * 0.85;
+    // Bounds for relative scaling (22% to 88% of screen height)
+    const minH = window.innerHeight * 0.22;
+    const maxH = window.innerHeight * 0.88;
     
     if (newHeight > maxH) newHeight = maxH;
     if (newHeight < minH) newHeight = minH;
     
     uiPanel.style.height = `${newHeight}px`;
-}, { passive: true });
+    recenterVisibleMap({ animate: false });
+});
 
-document.addEventListener('touchend', () => {
+function endPanelDrag() {
     if (!isDragging) return;
     isDragging = false;
     uiPanel.style.transition = 'height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
-    // Optional: Snap to 45% or 85% could be added here
-});
+    requestAnimationFrame(() => {
+        map.invalidateSize();
+        recenterVisibleMap({ animate: false });
+    });
+}
+
+document.addEventListener('pointerup', endPanelDrag);
+document.addEventListener('pointercancel', endPanelDrag);
 
 // ── 1. MAP INIT, DYNAMIC MARKERS & AUTO-HIDE ─────────────────────────
 const UOW_CENTER = [-34.405179721817376, 150.87717061799876];
 function calcBounds() {
-    const isMob = window.innerWidth <= 768;
+    const isMob = isSheetLayout();
     const baseLat = 0.005, baseLng = 0.009; // Tighter bounds for 80% coverage
     return [
         [UOW_CENTER[0] - baseLat * (isMob ? 1.5 : 1.1), UOW_CENTER[1] - baseLng * (isMob ? 1.3 : 1.1)],
@@ -302,11 +402,76 @@ function calcBounds() {
 const map = L.map('map', {
     maxBounds: calcBounds(), maxBoundsViscosity: 0.9, 
     minZoom: 17, // Enforced closer zoom level limit
+    maxZoom: 20,
     zoomControl: false, preferCanvas: true
 }).setView(UOW_CENTER, 18); // Set default to 17 so AOI is closer
 
-window.addEventListener('resize', () => map.setMaxBounds(calcBounds()), { passive: true });
+window.addEventListener('resize', () => {
+    map.setMaxBounds(calcBounds());
+    if (!isSheetLayout()) uiPanel.style.height = '';
+    requestAnimationFrame(() => {
+        map.invalidateSize();
+        updateMarkerScaleForViewport();
+        recenterVisibleMap({ animate: false, maxZoom: 18 });
+    });
+}, { passive: true });
 L.control.zoom({ position: 'bottomright' }).addTo(map);
+const routeButtons = document.querySelectorAll('.route-btn');
+
+function getMapPadding() {
+    const panelRect = uiPanel.getBoundingClientRect();
+    const pad = isSheetLayout() ? 16 : 24;
+    if (isSheetLayout()) {
+        const bottomPad = Math.min(Math.round(window.innerHeight * 0.6), Math.round(panelRect.height + pad));
+        return {
+            paddingTopLeft: [pad, pad],
+            paddingBottomRight: [pad, bottomPad]
+        };
+    }
+    return {
+        paddingTopLeft: [Math.round(panelRect.right + pad), pad],
+        paddingBottomRight: [pad, pad]
+    };
+}
+
+function getVisibleCenterOffset() {
+    const panelRect = uiPanel.getBoundingClientRect();
+    if (isSheetLayout()) return L.point(0, -Math.min(panelRect.height, window.innerHeight * 0.6) / 2);
+    return L.point(Math.max(0, panelRect.right) / 2, 0);
+}
+
+function getOffsetCenter(latlng, zoom) {
+    const target = L.latLng(latlng);
+    const targetPoint = map.project(target, zoom);
+    return map.unproject(targetPoint.subtract(getVisibleCenterOffset()), zoom);
+}
+
+function flyToVisible(latlng, zoom, options = {}) {
+    const targetZoom = zoom ?? map.getZoom();
+    map.flyTo(getOffsetCenter(latlng, targetZoom), targetZoom, options);
+}
+
+function fitHomeView(options = {}) {
+    map.fitBounds(getWalkBounds(), { ...getMapPadding(), ...options });
+}
+
+function recenterVisibleMap(options = {}) {
+    if (activeTree) flyToVisible([activeTree.lat, activeTree.lng], map.getZoom(), options);
+    else fitHomeView(options);
+}
+
+requestAnimationFrame(() => {
+    map.invalidateSize();
+    fitHomeView({ animate: false, maxZoom: 18 });
+});
+
+function getWalkBounds() {
+    const points = (currentRoute.length ? currentRoute : treeData)
+        .filter(t => Number.isFinite(t.lat) && Number.isFinite(t.lng))
+        .map(t => [t.lat, t.lng]);
+    if (!points.length) return calcBounds();
+    return L.latLngBounds(points).pad(0.12);
+}
 
 // Marker Cluster Init
 const markersClusterGroup = L.markerClusterGroup({
@@ -315,19 +480,26 @@ const markersClusterGroup = L.markerClusterGroup({
     spiderfyOnMaxZoom: true
 });
 
-map.on('zoomend', () => {
+map.on('zoomend', updateMarkerScaleForViewport);
+function updateMarkerScaleForViewport() {
     const z = map.getZoom();
-    let size = z <= 16 ? '9px' : z === 17 ? '13px' : '17px';
+    let size = z <= 16 ? '6px' : z === 17 ? '8px' : '10px';
+    if (isSheetLayout()) size = z <= 16 ? '5px' : z === 17 ? '7px' : '8px';
     document.documentElement.style.setProperty('--marker-size', size);
-});
-document.documentElement.style.setProperty('--marker-size', '13px');
+}
+updateMarkerScaleForViewport();
 
 let controlsTimeout;
+let controlFadeEls = null;
+function getControlFadeEls() {
+    if (!controlFadeEls) controlFadeEls = Array.from(document.querySelectorAll('.map-controls, .leaflet-control-zoom'));
+    return controlFadeEls;
+}
 function showMapControls() {
-    document.querySelectorAll('.map-controls, .leaflet-control-zoom').forEach(el => { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; });
+    getControlFadeEls().forEach(el => { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; });
     clearTimeout(controlsTimeout);
     controlsTimeout = setTimeout(() => {
-        document.querySelectorAll('.map-controls, .leaflet-control-zoom').forEach(el => { el.style.opacity = '0'; el.style.pointerEvents = 'none'; });
+        getControlFadeEls().forEach(el => { el.style.opacity = '0'; el.style.pointerEvents = 'none'; });
     }, 4000);
 }
 map.on('mousemove touchstart move zoomend click', showMapControls);
@@ -337,13 +509,28 @@ const darkBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z
 const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, opacity: 0.6 });
 const darkLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 20, zIndex: 10 }).addTo(map);
 
-let treeData = [], currentRoute = [], markersMap = {};
+let treeData = [], currentRoute = [];
+const markersMap = {};
+const treeById = new Map();
+const treeSnapCache = new Map();
+const nearbyTooltipIds = new Set();
+const imageSrcCache = new Map();
+const treeLinksCache = new Map();
+let treeLinksPromise = null;
 const routeGroupFull = L.layerGroup().addTo(map);
 const routeGroupRemaining = L.layerGroup().addTo(map);
+const routeEndpointGroup = L.layerGroup().addTo(map);
+let endpointInitialLabelsShown = false;
+let endpointLabelHideTimer = null;
+let endpointTwoFingerHoldTimer = null;
 const visitedStops = new Set();
 let userLoc = null;
 const networkGraph = {}, nodeCoords = {};
+const networkSegments = [];
 let activeTreeId = null;
+let activeTree = null;
+let lastUserRouteRenderLoc = null;
+let gpsUpdateQueued = false;
 
 const DEG = Math.PI / 180;
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -353,15 +540,65 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return 6371e3 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-async function getOptimizedImageSrc(url) {
-    if (!url || !('caches' in window)) return url;
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+}
+
+function normalizeTreeLinkKey(value) {
+    return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function safeExternalURL(value) {
     try {
-        const cacheStorage = await caches.open('uow-tree-media-v1');
-        let matched = await cacheStorage.match(url);
-        if (!matched) { await cacheStorage.add(url); matched = await cacheStorage.match(url); }
-        if (matched) return URL.createObjectURL(await matched.blob());
-    } catch (e) {}
-    return url;
+        const url = new URL(String(value ?? ''), window.location.href);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function getTreeLinks(treeName) {
+    return treeLinksCache.get(normalizeTreeLinkKey(treeName)) || [];
+}
+
+function loadTreeLinks() {
+    if (!treeLinksPromise) {
+        treeLinksPromise = fetch('trees_links.json')
+            .then(r => r.ok ? r.json() : [])
+            .then(records => {
+                treeLinksCache.clear();
+                (Array.isArray(records) ? records : []).forEach(record => {
+                    const links = Array.isArray(record.more_info)
+                        ? record.more_info
+                            .map(link => ({ label: String(link.label || '').trim(), url: safeExternalURL(link.url) }))
+                            .filter(link => link.label && link.url)
+                        : [];
+                    if (record.name && links.length) treeLinksCache.set(normalizeTreeLinkKey(record.name), links);
+                });
+                return treeLinksCache;
+            })
+            .catch(() => treeLinksCache);
+    }
+    return treeLinksPromise;
+}
+
+async function getOptimizedImageSrc(url) {
+    if (!url) return url;
+    if (!imageSrcCache.has(url)) {
+        imageSrcCache.set(url, (async () => {
+            if (!('caches' in window)) return url;
+            try {
+                const cacheStorage = await caches.open('uow-tree-media-v1');
+                let matched = await cacheStorage.match(url);
+                if (!matched) { await cacheStorage.add(url); matched = await cacheStorage.match(url); }
+                if (matched) return URL.createObjectURL(await matched.blob());
+            } catch (e) {}
+            return url;
+        })());
+    }
+    return imageSrcCache.get(url);
 }
 
 // ── 2. CAMPUS PATHS & ADVANCED SNAP GEOMETRY ──────────────────
@@ -375,6 +612,7 @@ fetch('campus_paths.geojson').then(r => r.json()).then(data => {
             const k1 = `${lat1.toFixed(5)},${lng1.toFixed(5)}`;
             const k2 = `${lat2.toFixed(5)},${lng2.toFixed(5)}`;
             nodeCoords[k1] = [lat1, lng1]; nodeCoords[k2] = [lat2, lng2];
+            networkSegments.push({ k1, k2, lat1, lng1, lat2, lng2 });
             const d = getDistance(lat1, lng1, lat2, lng2);
             (networkGraph[k1] ??= []).push({ to: k2, dist: d });
             (networkGraph[k2] ??= []).push({ to: k1, dist: d });
@@ -401,27 +639,30 @@ function distToSegmentSquared(px,py, vx,vy, wx,wy) {
 }
 
 function snapToNetwork(lat, lng) {
+    if (!networkSegments.length) return null;
     let minD = Infinity, bestNodeKey = null;
     const cosLat = Math.cos(lat * DEG);
     const px = lng * cosLat, py = lat;
 
-    for (const k1 in networkGraph) {
-        const [lat1, lng1] = nodeCoords[k1];
+    for (const segment of networkSegments) {
+        const { k1, k2, lat1, lng1, lat2, lng2 } = segment;
         const vx = lng1 * cosLat, vy = lat1;
-        for (const edge of networkGraph[k1]) {
-            const k2 = edge.to;
-            const [lat2, lng2] = nodeCoords[k2];
-            const wx = lng2 * cosLat, wy = lat2;
-            const dSq = distToSegmentSquared(px, py, vx, vy, wx, wy);
-            if (dSq < minD) {
-                minD = dSq;
-                const d1 = getDistance(lat, lng, lat1, lng1);
-                const d2 = getDistance(lat, lng, lat2, lng2);
-                bestNodeKey = d1 < d2 ? k1 : k2;
-            }
+        const wx = lng2 * cosLat, wy = lat2;
+        const dSq = distToSegmentSquared(px, py, vx, vy, wx, wy);
+        if (dSq < minD) {
+            minD = dSq;
+            const d1 = getDistance(lat, lng, lat1, lng1);
+            const d2 = getDistance(lat, lng, lat2, lng2);
+            bestNodeKey = d1 < d2 ? k1 : k2;
         }
     }
     return bestNodeKey || Object.keys(nodeCoords)[0];
+}
+
+function getTreeSnapKey(tree) {
+    if (!tree) return null;
+    if (!treeSnapCache.has(tree.id)) treeSnapCache.set(tree.id, snapToNetwork(tree.lat, tree.lng));
+    return treeSnapCache.get(tree.id);
 }
 
 const _pathCache = new Map();
@@ -455,14 +696,23 @@ function findNetworkPath(sKey, eKey) {
 function loadTreeCSV() {
     Papa.parse('trees.csv', {
         download: true, header: true, skipEmptyLines: true,
-        complete({ data }) {
+        async complete({ data }) {
+            await loadTreeLinks();
             treeData = data
                 .filter(r => r['Latitude'] && r['Longitude'])
                 .map((r, i) => ({
                     id: i + 1, lat: parseFloat(r['Latitude']), lng: parseFloat(r['Longitude']),
                     name: r['Common Name'] || 'Unknown Tree', scientific: r['Scientific Name'] || 'Unknown Species',
-                    family: r['Family'] || 'Unknown Family', img: r['Photo Filename'] ? `photos/${r['Photo Filename']}` : null
+                    family: r['Family'] || 'Unknown Family', features: r['Features'] || '',
+                    img: r['Photo Filename'] ? `photos/${r['Photo Filename']}` : null,
+                    moreInfo: getTreeLinks(r['Common Name'])
                 }));
+            treeById.clear();
+            treeSnapCache.clear();
+            treeData.forEach(tree => {
+                treeById.set(tree.id, tree);
+                treeSnapCache.set(tree.id, snapToNetwork(tree.lat, tree.lng));
+            });
             buildMapMarkers();
             setRouteMode('recommended');
         }
@@ -472,7 +722,7 @@ function loadTreeCSV() {
 function getMarkerIcon(id, isActive, isVisited) {
     let bg = 'var(--uow-red)'; let border = '2px solid rgba(255,255,255,.85)';
     let shadow = '0 0 5px rgba(229,25,55,.5),0 0 0 3px rgba(229,25,55,.12)';
-    let transform = isActive ? 'scale(1.5)' : 'scale(1)';
+    let transform = isActive ? 'scale(1.35)' : 'scale(1)';
     
     if (isActive) {
         bg = '#ffff00'; border = '2px solid #fff';
@@ -482,11 +732,31 @@ function getMarkerIcon(id, isActive, isVisited) {
         shadow = '0 0 5px rgba(46,160,67,.5),0 0 0 3px rgba(46,160,67,.12)';
     }
     const htmlEl = `<div id="icon-${id}" style="background:${bg}; width:var(--marker-size); height:var(--marker-size); border-radius:50%; border:${border}; box-shadow:${shadow}; transform:${transform}; transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);"></div>`;
-    return L.divIcon({ html: htmlEl, className: '', iconSize: [13,13], iconAnchor: [6,6] });
+    return L.divIcon({ html: htmlEl, className: '', iconSize: [10,10], iconAnchor: [5,5] });
 }
 
 function updateMarkerStyle(id) {
     if(markersMap[id]) markersMap[id].setIcon(getMarkerIcon(id, activeTreeId === id, visitedStops.has(id)));
+}
+
+function getMoreInfoHTML(tree, alaURL) {
+    const links = [
+        ...(Array.isArray(tree.moreInfo) ? tree.moreInfo : []),
+        { label: 'Search ALA', url: alaURL }
+    ];
+    if (!links.length) return '';
+    return `
+        <div class="more-info">
+            <span class="more-info-title">More Info</span>
+            <div class="more-info-links">
+                ${links.map(link => `
+                    <a class="more-info-link" href="${escapeHTML(link.url)}" target="_blank" rel="noopener noreferrer">
+                        ${escapeHTML(link.label)} <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                `).join('')}
+            </div>
+        </div>
+    `;
 }
 
 // ── HTML Injector for Dedicated Detail View ──
@@ -503,26 +773,41 @@ function getDetailsHTML(tree) {
     const btnClass = vis ? 'pb pb-unvisit' : 'pb pb-visit';
     const btnText = vis ? `<i class="bi bi-arrow-counterclockwise" style="margin-right:4px"></i>Mark Unvisited` : `<i class="bi bi-check2-circle" style="margin-right:4px"></i>Mark as Visited`;
 
-    const liveDistHtml = userLoc 
-        ? `<span id="dist-${tree.id}" class="popup-dist"><i class="bi bi-geo-alt-fill"></i> ${Math.round(getDistance(userLoc.lat, userLoc.lng, tree.lat, tree.lng))}m away</span>` 
-        : `<span id="dist-${tree.id}" class="popup-dist"></span>`;
+    const aboutHtml = `
+        <div class="feature-info">
+            <span class="about-title">About</span>
+            <div class="about-row">
+                <span class="about-key">Family</span>
+                <span class="about-value">${escapeHTML(tree.family)}</span>
+            </div>
+            ${tree.features ? `
+                <div class="about-row">
+                    <span class="about-key">Features</span>
+                    <span class="about-value">${escapeHTML(tree.features)}</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
 
     return `
-        <div class="detail-title">${tree.name}</div>
-        <div class="detail-sci">${tree.scientific}</div>
-        
-        <div class="popup-body">
-            <div class="popup-fam"><span>Family: </span>${tree.family}</div>
-            <div class="popup-coords">
-                <span>${tree.lat.toFixed(5)}&deg;S &bull; ${tree.lng.toFixed(5)}&deg;E</span>
-                ${liveDistHtml}
+        <div class="detail-card">
+            <div class="detail-head">
+                <div>
+                    <h3 class="detail-title">${tree.name}</h3>
+                    <div class="detail-sci">${tree.scientific}</div>
+                </div>
+                <div class="detail-badge">Stop ${tree.id}</div>
             </div>
-            <div class="popup-btns">
-                <button class="${btnClass}" id="bv-${tree.id}">${btnText}</button>
-                <a href="${ala}" target="_blank" class="pb pb-ala"><i class="bi bi-box-arrow-up-right" style="margin-right:4px"></i>Search ALA</a>
+
+            <div class="popup-body">
+                ${imgBlock}
+                ${aboutHtml}
+                ${getMoreInfoHTML(tree, ala)}
+                <div class="popup-btns">
+                    <button class="${btnClass}" id="bv-${tree.id}">${btnText}</button>
+                </div>
             </div>
         </div>
-        ${imgBlock}
     `;
 }
 
@@ -536,7 +821,7 @@ function buildMapMarkers() {
     treeData.forEach(tree => {
         const marker = L.marker([tree.lat, tree.lng], { icon: getMarkerIcon(tree.id, false, false) });
         markersMap[tree.id] = marker;
-        marker.on('click', () => { activateTree(tree.id); map.flyTo([tree.lat, tree.lng], 19, {animate: true, duration: 0.8}); });
+        marker.on('click', () => { activateTree(tree.id); flyToVisible([tree.lat, tree.lng], 19, {animate: true, duration: 0.8}); });
         markersClusterGroup.addLayer(marker);
     });
     map.addLayer(markersClusterGroup);
@@ -544,7 +829,7 @@ function buildMapMarkers() {
 
 // ── 4. ROUTES & FADING LOGIC ─────────────────────────────────
 function setRouteMode(mode) {
-    document.querySelectorAll('.route-btn').forEach(b => b.classList.remove('active'));
+    routeButtons.forEach(b => b.classList.remove('active'));
     document.getElementById(`btn-${mode}`).classList.add('active');
     
     if (mode === 'recommended') currentRoute = [...treeData]; 
@@ -558,16 +843,18 @@ function setRouteMode(mode) {
             const np = rem.splice(ni, 1)[0]; currentRoute.push(np); cur = np;
         }
     }
-    _pathCache.clear(); renderSidebar(); generateSmartRoutes();
+    renderSidebar();
+    generateSmartRoutes({ force: true });
+    if (!activeTree) fitHomeView({ animate: false, maxZoom: 18 });
 }
 
 function addSegment(start, end, isNet, trackState) {
     if (!start || !end) return 0;
     
-    let finalOpacity = trackState === 'faded' ? 0.15 : 0.88;
+    let finalOpacity = trackState === 'faded' ? 0.09 : 0.55;
     let finalWeight = trackState === 'faded' ? (isNet ? 2 : 1.5) : (isNet ? 4 : 2);
 
-    const sf = isNet ? { color:'#E51937', weight:3, opacity:.08, interactive:false } : { color:'#fff', weight:1.5, opacity:.1, dashArray:'3,6', interactive:false };
+    const sf = isNet ? { color:'#E51937', weight:3, opacity:.045, interactive:false } : { color:'#fff', weight:1.5, opacity:.06, dashArray:'3,6', interactive:false };
     const sa = isNet ? { color:'#E51937', weight:finalWeight, opacity:finalOpacity, lineCap:'round', interactive:false } : { color:'#ff6b8a', weight:finalWeight, opacity:finalOpacity, dashArray:'4,6', interactive:false };
                      
     L.polyline([start, end], sf).addTo(routeGroupFull);
@@ -588,17 +875,109 @@ function formatTime(mins) {
     return `${mins} min`;
 }
 
-function generateSmartRoutes() {
-    routeGroupFull.clearLayers(); routeGroupRemaining.clearLayers();
+function addRouteEndpoint(tree, color, label, showInitialLabel) {
+    if (!tree) return;
+    const point = L.circleMarker([tree.lat, tree.lng], {
+        radius: 12,
+        color,
+        weight: 2,
+        opacity: 0.5,
+        fillColor: color,
+        fillOpacity: 0.16,
+        interactive: true,
+        bubblingMouseEvents: false
+    }).addTo(routeEndpointGroup);
+    L.circleMarker([tree.lat, tree.lng], {
+        radius: 4,
+        color: '#fff',
+        weight: 1.5,
+        opacity: 0.9,
+        fillColor: color,
+        fillOpacity: 0.95,
+        interactive: false
+    }).addTo(routeEndpointGroup);
+    point.bindTooltip(label, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'route-endpoint-label',
+        opacity: 1,
+        permanent: false
+    });
+    point.on('mouseover', () => point.openTooltip());
+    point.on('mouseout', () => point.closeTooltip());
+    point.on('click touchstart', () => {
+        point.openTooltip();
+        clearTimeout(point._endpointTouchTimer);
+        point._endpointTouchTimer = setTimeout(() => point.closeTooltip(), 2200);
+    });
+    if (showInitialLabel) point.openTooltip();
+}
+
+function updateRouteEndpoints() {
+    clearTimeout(endpointLabelHideTimer);
+    routeEndpointGroup.clearLayers();
+    if (!currentRoute.length) return;
+    const startTree = currentRoute[0];
+    const endTree = currentRoute[currentRoute.length - 1];
+    const showInitialLabel = !endpointInitialLabelsShown;
+    addRouteEndpoint(startTree, '#2ea043', 'Start', showInitialLabel);
+    if (endTree && endTree.id !== startTree.id) addRouteEndpoint(endTree, '#E51937', 'End', showInitialLabel);
+    if (showInitialLabel) {
+        endpointInitialLabelsShown = true;
+        endpointLabelHideTimer = setTimeout(() => {
+            hideEndpointLabels();
+        }, 4000);
+    }
+}
+
+function showEndpointLabels(duration = 2800) {
+    clearTimeout(endpointLabelHideTimer);
+    routeEndpointGroup.eachLayer(layer => {
+        if (typeof layer.getTooltip === 'function' && layer.getTooltip()) layer.openTooltip();
+    });
+    endpointLabelHideTimer = setTimeout(hideEndpointLabels, duration);
+}
+
+function hideEndpointLabels() {
+    routeEndpointGroup.eachLayer(layer => {
+        if (typeof layer.getTooltip === 'function' && layer.getTooltip()) layer.closeTooltip();
+    });
+}
+
+function handleEndpointTwoFingerStart(event) {
+    if (!isSheetLayout() || event.touches?.length !== 2) return;
+    clearTimeout(endpointTwoFingerHoldTimer);
+    endpointTwoFingerHoldTimer = setTimeout(() => showEndpointLabels(3200), 650);
+}
+
+function handleEndpointTwoFingerEnd(event) {
+    if (!event.touches || event.touches.length < 2) clearTimeout(endpointTwoFingerHoldTimer);
+}
+
+const mapTouchTarget = map.getContainer();
+mapTouchTarget.addEventListener('touchstart', handleEndpointTwoFingerStart, { passive: true });
+mapTouchTarget.addEventListener('touchmove', handleEndpointTwoFingerEnd, { passive: true });
+mapTouchTarget.addEventListener('touchend', handleEndpointTwoFingerEnd, { passive: true });
+mapTouchTarget.addEventListener('touchcancel', handleEndpointTwoFingerEnd, { passive: true });
+
+function generateSmartRoutes(options = {}) {
+    const force = options.force === true;
+    if (!force && userLoc && lastUserRouteRenderLoc) {
+        const moved = getDistance(lastUserRouteRenderLoc.lat, lastUserRouteRenderLoc.lng, userLoc.lat, userLoc.lng);
+        if (moved < 8) return;
+    }
+    routeGroupFull.clearLayers(); routeGroupRemaining.clearLayers(); routeEndpointGroup.clearLayers();
     let activeDist = 0; let nextIdx = 0;
     if (userLoc) {
         nextIdx = currentRoute.findIndex(t => !visitedStops.has(t.id));
         if (nextIdx === -1) nextIdx = currentRoute.length;
     }
     for (let i = 0; i < currentRoute.length; i++) {
-        const { lat: sLat, lng: sLng } = currentRoute[i];
+        const startTree = currentRoute[i];
+        const { lat: sLat, lng: sLng } = startTree;
         if (i === nextIdx && userLoc) {
-            const sk = snapToNetwork(userLoc.lat, userLoc.lng); const ek = snapToNetwork(sLat, sLng);
+            const sk = snapToNetwork(userLoc.lat, userLoc.lng);
+            const ek = getTreeSnapKey(startTree);
             if (sk && ek) {
                 activeDist += addSegment([userLoc.lat, userLoc.lng], nodeCoords[sk], false, 'active');
                 const np = findNetworkPath(sk, ek);
@@ -607,8 +986,9 @@ function generateSmartRoutes() {
             } else { activeDist += addSegment([userLoc.lat, userLoc.lng], [sLat, sLng], false, 'active'); }
         }
         if (i < currentRoute.length - 1) {
-            const { lat: eLat, lng: eLng } = currentRoute[i+1];
-            const sk = snapToNetwork(sLat, sLng), ek = snapToNetwork(eLat, eLng);
+            const endTree = currentRoute[i + 1];
+            const { lat: eLat, lng: eLng } = endTree;
+            const sk = getTreeSnapKey(startTree), ek = getTreeSnapKey(endTree);
             const trackState = i >= nextIdx ? 'active' : 'faded'; 
             
             if (sk && ek) {
@@ -623,6 +1003,7 @@ function generateSmartRoutes() {
             }
         }
     }
+    updateRouteEndpoints();
     if (activeDist === 0 && currentRoute.length && !userLoc && nextIdx === 0) {
         document.getElementById('stat-dist').textContent = "Map View";
         document.getElementById('stat-time').textContent = "--";
@@ -632,12 +1013,13 @@ function generateSmartRoutes() {
         document.getElementById('stat-dist').textContent = `${km} km`;
         document.getElementById('stat-time').textContent = formatTime(mins);
     }
+    lastUserRouteRenderLoc = userLoc ? { ...userLoc } : null;
     updateProgress();
 }
 
 function updateProgress() {
     const total = currentRoute.length;
-    const done = currentRoute.filter(t => visitedStops.has(t.id)).length;
+    const done = Math.min(visitedStops.size, total);
     const pct = total ? Math.round(done/total*100) : 0;
     document.getElementById('progress-fill').style.width = pct + '%';
     document.getElementById('progress-text').textContent = `${done}/${total}`;
@@ -646,33 +1028,88 @@ function updateProgress() {
 // ── 5. LIVE PROXIMITY TOOLTIPS & DISTANCES ─────────────────
 function updateDynamicGPSContexts() {
     if (!userLoc) return;
-    
+    const nextNearbyIds = new Set();
     treeData.forEach(t => {
-        let d = getDistance(userLoc.lat, userLoc.lng, t.lat, t.lng);
-        let marker = markersMap[t.id];
+        const d = getDistance(userLoc.lat, userLoc.lng, t.lat, t.lng);
+        const marker = markersMap[t.id];
         if (!marker) return;
         
         if (d <= 25) {
-            if (!marker.getTooltip()) marker.bindTooltip(t.name, {permanent: true, direction: 'top', className: 'nearby-tree-label', offset: [0, -5]}).openTooltip();
-        } else {
-            if (marker.getTooltip()) marker.unbindTooltip();
+            nextNearbyIds.add(t.id);
+            if (!nearbyTooltipIds.has(t.id)) {
+                marker.bindTooltip(t.name, {permanent: true, direction: 'top', className: 'nearby-tree-label', offset: [0, -5]}).openTooltip();
+            }
         }
     });
+    nearbyTooltipIds.forEach(id => {
+        if (nextNearbyIds.has(id)) return;
+        const marker = markersMap[id];
+        if (marker) marker.unbindTooltip();
+    });
+    nearbyTooltipIds.clear();
+    nextNearbyIds.forEach(id => nearbyTooltipIds.add(id));
 
-    if (activeTreeId) {
-        const distNode = document.getElementById(`dist-${activeTreeId}`);
-        const activeTreeObj = treeData.find(x => x.id === activeTreeId);
-        if (distNode && activeTreeObj) {
-            let currentDist = Math.round(getDistance(userLoc.lat, userLoc.lng, activeTreeObj.lat, activeTreeObj.lng));
-            distNode.innerHTML = `<i class="bi bi-geo-alt-fill"></i> ${currentDist}m away`;
-        }
-    }
+    if (activeTreeId && activeTree) updateDetailMiniCoords(activeTree);
 }
 
 // ── 6. PANEL VIEW LOGIC ─────────────────────────────────────
 const stopsList = document.getElementById('stops-list');
 const detailViewArea = document.getElementById('tree-detail-view');
 const detailContentArea = document.getElementById('detail-content-area');
+const detailMiniCoords = document.getElementById('detail-mini-coords');
+
+function updateDetailMiniCoords(tree) {
+    if (!detailMiniCoords || !tree) return;
+    detailMiniCoords.innerHTML = userLoc
+        ? `<span class="detail-mini-dist">${Math.round(getDistance(userLoc.lat, userLoc.lng, tree.lat, tree.lng))}m away</span>`
+        : `<span class="detail-mini-help">Enable GPS for distance</span>`;
+}
+
+function fitDetailSheetToContent() {
+    if (!isSheetLayout()) return;
+    requestAnimationFrame(() => {
+        const dragHeight = dragHandleContainer.offsetHeight || 0;
+        const headerHeight = document.querySelector('.panel-header')?.offsetHeight || 0;
+        const navHeight = detailViewArea.querySelector('.detail-nav')?.offsetHeight || 0;
+        const bodyContentHeight = navHeight + detailContentArea.scrollHeight + 16;
+        const minHeight = window.innerHeight * 0.48;
+        const maxHeight = window.innerHeight * 0.88;
+        const targetHeight = Math.min(maxHeight, Math.max(minHeight, dragHeight + headerHeight + bodyContentHeight + 20));
+        uiPanel.style.height = `${Math.round(targetHeight)}px`;
+        map.invalidateSize();
+        if (activeTree) flyToVisible([activeTree.lat, activeTree.lng], map.getZoom(), { animate: false });
+    });
+}
+
+function syncCardVisitedState(id) {
+    const card = document.getElementById(`card-${id}`);
+    if (!card) return;
+    const isVisited = visitedStops.has(id);
+    card.classList.toggle('visited', isVisited);
+    const cardHeader = card.querySelector('.tree-card-header');
+    if (!cardHeader) return;
+    const existingIndicator = cardHeader.lastElementChild;
+    if (isVisited) {
+        if (!existingIndicator || !existingIndicator.classList.contains('card-check')) {
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-check-circle-fill card-check';
+            if (existingIndicator) existingIndicator.replaceWith(icon);
+            else cardHeader.appendChild(icon);
+        }
+    } else if (existingIndicator) {
+        existingIndicator.replaceWith(document.createElement('span'));
+    }
+}
+
+function updateDetailVisitButton(id) {
+    const btn = document.getElementById(`bv-${id}`);
+    if (!btn) return;
+    const isVisited = visitedStops.has(id);
+    btn.className = isVisited ? 'pb pb-unvisit' : 'pb pb-visit';
+    btn.innerHTML = isVisited
+        ? `<i class="bi bi-arrow-counterclockwise" style="margin-right:4px"></i>Mark Unvisited`
+        : `<i class="bi bi-check2-circle" style="margin-right:4px"></i>Mark as Visited`;
+}
 
 function renderSidebar() {
     const frag = document.createDocumentFragment();
@@ -685,6 +1122,7 @@ function renderSidebar() {
         const card = document.createElement('div');
         card.className = `tree-card${vis ? ' visited' : ''}`;
         card.id = `card-${tree.id}`;
+        card.dataset.treeId = tree.id;
 
         card.innerHTML = `
             <div class="tree-card-header">
@@ -695,8 +1133,6 @@ function renderSidebar() {
                 ${vis ? `<i class="bi bi-check-circle-fill card-check"></i>` : `<span></span>`}
             </div>
         `;
-
-        card.onclick = () => { activateTree(tree.id); map.flyTo([tree.lat, tree.lng], 19, {animate: true, duration: 0.6}); };
         frag.appendChild(card);
     });
 
@@ -704,9 +1140,20 @@ function renderSidebar() {
     updateProgress();
 }
 
+stopsList.addEventListener('click', event => {
+    const card = event.target.closest('.tree-card');
+    if (!card) return;
+    const id = Number(card.dataset.treeId);
+    const tree = treeById.get(id);
+    if (!tree) return;
+    activateTree(id);
+    flyToVisible([tree.lat, tree.lng], 19, {animate: true, duration: 0.6});
+});
+
 function activateTree(id) {
     const prevActiveId = activeTreeId;
     activeTreeId = id;
+    activeTree = treeById.get(id) || null;
     
     if (prevActiveId) updateMarkerStyle(prevActiveId);
     if (activeTreeId) updateMarkerStyle(activeTreeId);
@@ -715,8 +1162,9 @@ function activateTree(id) {
     stopsList.style.display = 'none';
     detailViewArea.style.display = 'flex';
     
-    const tree = treeData.find(t => t.id === id);
+    const tree = activeTree;
     if (tree) {
+        updateDetailMiniCoords(tree);
         detailContentArea.innerHTML = getDetailsHTML(tree);
         
         // Setup Visit Toggle Button
@@ -726,9 +1174,9 @@ function activateTree(id) {
                 e.stopPropagation();
                 if (visitedStops.has(id)) visitedStops.delete(id); else visitedStops.add(id);
                 updateMarkerStyle(id); 
-                generateSmartRoutes();
-                // Rerender active HTML to update button visually
-                activateTree(id);
+                syncCardVisitedState(id);
+                updateDetailVisitButton(id);
+                generateSmartRoutes({ force: true });
             };
         }
         
@@ -736,8 +1184,10 @@ function activateTree(id) {
             getOptimizedImageSrc(tree.img).then(src => {
                 const hi = document.getElementById(`hi-${id}`); const bl = document.getElementById(`bl-${id}`);
                 if (hi) hi.src = src; if (bl) bl.src = src;
+                fitDetailSheetToContent();
             });
         }
+        fitDetailSheetToContent();
     }
 }
 
@@ -745,12 +1195,14 @@ window.backToList = () => {
     if (activeTreeId) {
         const prevId = activeTreeId;
         activeTreeId = null;
+        activeTree = null;
         updateMarkerStyle(prevId);
     }
+    if (detailMiniCoords) detailMiniCoords.textContent = '';
     detailViewArea.style.display = 'none';
     stopsList.style.display = 'block';
-    renderSidebar(); // Refresh list styles
-    map.fitBounds(calcBounds(), {animate: true, duration: 0.8});
+    if (isSheetLayout()) uiPanel.style.height = '45vh';
+    fitHomeView({animate: true, duration: 0.8});
 };
 
 // ── 7. LIGHTBOX ──────────────────────────────────────────────
@@ -766,11 +1218,58 @@ window.closeLightbox = () => {
 
 // ── 8. GPS TRACKING & GEOFENCE ──────────────────────────────
 let userMarker = null, watchId = null, tracking = false;
-document.getElementById('gps-toggle').addEventListener('click', function() {
+const gpsButton = document.getElementById('gps-toggle');
+const gpsPrompt = document.getElementById('gps-prompt');
+const gpsPromptEnable = document.getElementById('gps-prompt-enable');
+const gpsPromptDismiss = document.getElementById('gps-prompt-dismiss');
+function setGPSButtonState(state) {
+    gpsButton.classList.remove('active');
+    gpsButton.classList.toggle('locating', state === 'locating');
+    gpsButton.classList.toggle('gps-active', state === 'active');
+    if (state === 'locating' || state === 'active') hideGPSPrompt();
+}
+function hideGPSPrompt() {
+    if (gpsPrompt) gpsPrompt.classList.remove('show');
+}
+function markGPSPromptSeen() {
+    try { sessionStorage.setItem('uow-treewalk-gps-prompt-seen', '1'); } catch (e) {}
+    hideGPSPrompt();
+}
+function maybeShowGPSPrompt() {
+    if (!gpsPrompt || tracking || !navigator.geolocation) return;
+    try {
+        if (sessionStorage.getItem('uow-treewalk-gps-prompt-seen')) return;
+    } catch (e) {}
+    gpsPrompt.classList.add('show');
+}
+gpsPromptEnable?.addEventListener('click', () => {
+    markGPSPromptSeen();
+    if (!tracking) gpsButton.click();
+});
+gpsPromptDismiss?.addEventListener('click', markGPSPromptSeen);
+setTimeout(maybeShowGPSPrompt, 1000);
+function clearNearbyTooltips() {
+    nearbyTooltipIds.forEach(id => {
+        const marker = markersMap[id];
+        if (marker) marker.unbindTooltip();
+    });
+    nearbyTooltipIds.clear();
+}
+function scheduleGPSRefresh(forceRouteRefresh = false) {
+    if (forceRouteRefresh) lastUserRouteRenderLoc = null;
+    if (gpsUpdateQueued) return;
+    gpsUpdateQueued = true;
+    requestAnimationFrame(() => {
+        gpsUpdateQueued = false;
+        updateDynamicGPSContexts();
+        generateSmartRoutes({ force: forceRouteRefresh });
+    });
+}
+gpsButton.addEventListener('click', function() {
     if (!tracking) {
         if (!navigator.geolocation) return alert('Geolocation not supported.');
         
-        tracking = true; this.classList.add('active');
+        tracking = true; setGPSButtonState('locating');
         watchId = navigator.geolocation.watchPosition(pos => {
             userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             
@@ -778,25 +1277,40 @@ document.getElementById('gps-toggle').addEventListener('click', function() {
             const distFromCampus = getDistance(userLoc.lat, userLoc.lng, UOW_CENTER[0], UOW_CENTER[1]);
             if (distFromCampus > 2000) {
                 alert('Sorry, you are too far away. Move closer to the area for the tracking feature.');
-                document.getElementById('gps-toggle').click(); // Turn off automatically
+                gpsButton.click(); // Turn off automatically
                 return;
             }
+            setGPSButtonState('active');
 
             if (!userMarker) {
                 userMarker = L.circleMarker([userLoc.lat, userLoc.lng], { radius:8, color:'#fff', weight:2.5, fillColor:'#3b82f6', fillOpacity:1, zIndexOffset:1000 }).addTo(map);
-                map.flyTo([userLoc.lat, userLoc.lng], 19, {animate: true});
+                flyToVisible([userLoc.lat, userLoc.lng], 19, {animate: true});
             } else { userMarker.setLatLng([userLoc.lat, userLoc.lng]); }
             
-            updateDynamicGPSContexts();
-            generateSmartRoutes();
-        }, null, { enableHighAccuracy: true });
+            scheduleGPSRefresh();
+        }, err => {
+            tracking = false;
+            setGPSButtonState('off');
+            userLoc = null;
+            if (activeTree) updateDetailMiniCoords(activeTree);
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            alert(err?.message || 'Unable to obtain your location.');
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
     } else {
-        tracking = false; this.classList.remove('active'); userLoc = null;
-        navigator.geolocation.clearWatch(watchId);
+        tracking = false; setGPSButtonState('off'); userLoc = null;
+        if (activeTree) updateDetailMiniCoords(activeTree);
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        watchId = null;
         if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-        generateSmartRoutes();
-        treeData.forEach(t => { const m = markersMap[t.id]; if (m && m.getTooltip()) m.unbindTooltip(); });
+        lastUserRouteRenderLoc = null;
+        clearNearbyTooltips();
+        generateSmartRoutes({ force: true });
     }
+});
+
+document.getElementById('home-view').addEventListener('click', () => {
+    fitHomeView({animate: true, duration: 0.8, maxZoom: 18});
 });
 
 document.getElementById('satellite-toggle').addEventListener('click', function() {

@@ -1,50 +1,51 @@
-Common Name,Photo Filename,Scientific Name,Family,Latitude,Longitude
-Bangalow Palm,Bangalow Palm_01.png,Archontophoenix cunninghami ,Arecaceae,-34.406105,150.878998
-Black Plum,Black Plum_01.png,Diospyros australis ,Ebenaceae,-34.407286,150.879269
-Blackbutt,Blackbutt_01.png,Eucalyptus pilularis ,Myrtaceae,-34.407021,150.879062
-Blue Box,Blue Box_01.png,Eucalyptus baueriana ,Myrtaceae,-34.406848,150.880715
-Blueberry Ash,Blueberry Ash_01.png,Elaeocarpus reticulatus ,Elaeocarpaceae,-34.404919,150.878561
-Bolwarra,Bolwarra_01.png,Eupomatia laurina,Eupomatiaceae,-34.406558,150.879315
-Bonewood,Bonewood_01.png,Emmenosperma alphitonioides ,Rhamnaceae,-34.406844,150.880678
-Broad-leaved Paperbark,Broad-leaved Paperbark_01.png,Melaleuca quinquenervia ,Myrtaceae,-34.4051364,150.8786228
-Brush Cherry,Brush Cherry_01.png,Syzygium australe,Myrtaceae,-34.404335,150.878144
-Brush Muttonwood,Brush Muttonwood_01.png,Myrsine howittiana,Primulaceae,-34.406767,150.879652
-Cabbage Gum,Cabbage Gum_01.png,Eucalyptus amplifolia,Myrtaceae,-34.4048,150.878858
-Cabbage Tree Palm,Cabbage Tree Palm_01.png,Livistona australis ,Arecaceae,-34.407148,150.879051
-Cheese Tree,Cheese Tree_01.png,Glochidion ferdinandi ,Phyllanthaceae,-34.4060425,150.8806698
-Coachwood,Coachwood_01.png,Ceratopetalum apetalum ,Cunoniaceae,-34.406573,150.879338
-Coast Grey Box,Coast Grey Box_01.png,Eucalyptus bosistoana ,Myrtaceae,-34.406608,150.879628
-Flooded Gum,Flooded Gum_01.png,Eucalyptus grandis ,Myrtaceae,-34.405828,150.879056
-Forest Oak,Forest Oak_01.png,Allocasuarina torulosa ,Casuarinaceae,-34.405201,150.878772
-Forest Red Gum,Forest Red Gum_01.png,Eucalyptus tereticornis ,Myrtaceae,-34.407354,150.879661
-Grey Ironbark,Grey Ironbark_01.png,Eucalyptus paniculata ,Myrtaceae,-34.406725,150.8804143
-Guioa,Guioa_01.png,Guioa semiglauca,Sapindaceae,-34.405282,150.878717
-Illawarra Flame Tree,Illawarra Flame Tree_01.png,Brachychiton acerifolia ,Malvaceae,-34.407333,150.879727
-Illawarra Plum Pine,Illawarra Plum Pine_01.png,Podocarpus elatus ,Podocarpaceae,-34.407212,150.87917
-Jackwood,Jackwood_01.png,Cryptocarya glaucescens,Lauraceae,-34.407303,150.879267
-Large-leaved Mock-olive,Large-leaved Mock-olive_01.png,Notelaea venosa,Oleaceae,-34.406833,150.879721
-Lilly Pilly,Lilly Pilly_01.png,Syzygium smithii,Myrtaceae,-34.406687,150.879502
-Morton Bay Fig,Morton Bay Fig_01.png,Ficus macrophylla ,Moraceae,-34.407147,150.879275
-Native Holly,Native Holly_01.png,Alchornea ilicifolia,Euphorbiaceae,-34.406643,150.8795
-Native Quince,Native Quince_01.png,Alectryon subcinereus ,Sapindaceae,-34.407307,150.879354
-Native Rosella,Native Rosella_01.png,Hibiscus heterophyllus,Malvaceae,-34.404346,150.878987
-Native Tamarind,Native Tamarind_01.png,Diploglottis cunninghamii ,Sapindaceae,-34.406101,150.879149
-Pencil Cedar,Pencil Cedar_01.png,Polyscias murrayi ,Araliaceae,-34.405935,150.879367
-Port Jackson Fig,Port Jackson Fig_01.png,Ficus rubiginosa ,Moraceae,-34.405541,150.878362
-Prickly-leaved Tea Tree,Prickly-leaved Tea Tree_01.png,Melaleuca styphelioides ,Myrtaceae,-34.405595,150.878981
-Red Cedar,Red Cedar_01.png,Toona ciliata ,Meliaceae,-34.406187,150.879128
-River Oak,River Oak_01.png,Casuarina cunninghamiana ,Casuarinaceae,-34.405558,150.878927
-Rough-barked Apple,Rough-barked Apple_01.png,Angophora floribunda ,Myrtaceae,-34.4056528,150.8781089
-Sandpaper Fig,Sandpaper Fig_01.png,Ficus coronata ,Moraceae,-34.4059209,150.8807154
-Snow in Summer,Snow in Summer_01.png,Melaleuca linarifolia ,Myrtaceae,-34.4051241,150.8785683
-Snow wood,Snow wood_01.png,Pararchidendron pruinosum ,Fabaceae,-34.407361,150.879453
-Spotted Gum,Spotted Gum_01.png,Corymbia maculata ,Myrtaceae,-34.406736,150.879688
-Swamp Mahogany,Swamp Mahogany_01.png,Eucalyptus robusta ,Myrtaceae,-34.406208,150.879543
-Swamp Oak,Swamp Oak_01.png,Casuarina glauca ,Casuarinaceae,-34.404319,150.878979
-Sydney Red Gum,Sydney Red Gum_01.png,Angophora costata ,Myrtaceae,-34.405653,150.878062
-Turpentine,Turpentine_01.png,Syncarpia glomulifera ,Myrtaceae,-34.404752,150.881022
-Whalebone Tree,Whalebone Tree_01.png,Streblus brunonianus ,Moraceae,-34.404852,150.878628
-White Beech,White Beech_01.png,Gmelina leichhardtii ,Lamiaceae,-34.406851,150.880675
-White Cedar,White Cedar_01.png,Melia azedarach ,Meliaceae,-34.4062148,150.8806539
-White Euodia,White Euodia_01.png,Melicope micrococca ,Rutaceae,-34.406858,150.880649
-Woollybutt,Woollybutt_01.png,Eucalyptus longifolia ,Myrtaceae,-34.40475,150.879661
+Common Name,Photo Filename,Scientific Name,Family,Latitude,Longitude,Features
+Bangalow Palm,Bangalow Palm_01.png,Archontophoenix cunninghami ,Arecaceae,-34.406105,150.878998,Ridged trunk from leaf scars; long feather-like fronds; pink/lilac flowers; red drupe fruit; single trunk to 30 m.
+Black Plum,Black Plum_01.png,Diospyros australis ,Ebenaceae,-34.407286,150.879269,"Rough grey-brown lower bark, smooth pale upper bark; lance-shaped leaves; white flower clusters; hemispherical gumnuts; tall tree to 50 m."
+Blackbutt,Blackbutt_01.png,Eucalyptus pilularis ,Myrtaceae,-34.407021,150.879062,Dark rough bark; glossy green upper leaves with yellow-green underside; white/cream flowers; fleshy fruit turning black; shrub/small tree to 10 m.
+Blue Box,Blue Box_01.png,Eucalyptus baueriana ,Myrtaceae,-34.406848,150.880715,Smooth bark; alternate serrated leaves; fringed white/pink bell flowers; blue drupe fruit; shrub/tree to 10 m.
+Blueberry Ash,Blueberry Ash_01.png,Elaeocarpus reticulatus ,Elaeocarpaceae,-34.404919,150.878561,Rough grey bark; alternate rounded leaves; flowers in clusters of 7; conical gumnuts; tree to 20 m.
+Bolwarra,Bolwarra_01.png,Eupomatia laurina,Eupomatiaceae,-34.406558,150.879315,Smooth green-brown bark; glossy scented zig-zag leaves; scented white flowers; pale green/white berries; shrub/tree to 4 m.
+Bonewood,Bonewood_01.png,Emmenosperma alphitonioides ,Rhamnaceae,-34.406844,150.880678,Silver-grey cracked bark; mostly opposite leaves; white/cream flower clusters; orange-yellow fruit; tree to 30 m.
+Broad-leaved Paperbark,Broad-leaved Paperbark_01.png,Melaleuca quinquenervia ,Myrtaceae,-34.4051364,150.8786228,Paperbark trunk; alternate five-veined leaves; white/cream flower spikes; dry capsule fruit; tree to 15 m.
+Brush Cherry,Brush Cherry_01.png,Syzygium australe,Myrtaceae,-34.404335,150.878144,Flaky pale-grey bark; glossy opposite leaves with oil glands; white flower clusters; red-purple fleshy fruit; shrub/tree to 8 m.
+Brush Muttonwood,Brush Muttonwood_01.png,Myrsine howittiana,Primulaceae,-34.406767,150.879652,Smooth grey-whitish bark; undulating glossy leaves; green-white flower clusters; blue-mauve/white fruit; shrub/small tree to 5 m.
+Cabbage Gum,Cabbage Gum_01.png,Eucalyptus amplifolia,Myrtaceae,-34.4048,150.878858,Smooth multicoloured bark; broad juvenile leaves and narrow adult leaves; white flower clusters; egg-shaped protruding-valve gumnuts; medium tree to 20 m.
+Cabbage Tree Palm,Cabbage Tree Palm_01.png,Livistona australis ,Arecaceae,-34.407148,150.879051,Rough ridged trunk; fan-shaped leaves on spiky stalks; creamy flower clusters; hard round black fruit; tall palm to 30 m+.
+Cheese Tree,Cheese Tree_01.png,Glochidion ferdinandi ,Phyllanthaceae,-34.4060425,150.8806698,Tall rainforest tree; divided leaves; flower clusters; fleshy fruit; bird-attracting canopy.
+Coachwood,Coachwood_01.png,Ceratopetalum apetalum ,Cunoniaceae,-34.406573,150.879338,Rough bark; alternate tough leaves; green-yellow flowers; segmented white-red fruit; tree to 25 m.
+Coast Grey Box,Coast Grey Box_01.png,Eucalyptus bosistoana ,Myrtaceae,-34.406608,150.879628,Smooth bark with horizontal ridges/lichen; opposite serrated leaves; creamy-white to pink clusters; nut-like fruit; medium tree to 25 m.
+Flooded Gum,Flooded Gum_01.png,Eucalyptus grandis ,Myrtaceae,-34.405828,150.879056,"Fibrous flaky lower bark, smooth upper trunk; narrow lance-shaped leaves; white flowers; cylindrical gumnuts; tree to 60 m, smaller locally."
+Forest Oak,Forest Oak_01.png,Allocasuarina torulosa ,Casuarinaceae,-34.405201,150.878772,Pale smooth bark with rough base; alternate oil-dotted leaves; white flowers; cone-shaped gumnuts; very tall straight tree.
+Forest Red Gum,Forest Red Gum_01.png,Eucalyptus tereticornis ,Myrtaceae,-34.407354,150.879661,Brown-red corky bark; tiny leaves as teeth on branchlets; separate male/female flowers; woody cones; tree to 10 m.
+Grey Ironbark,Grey Ironbark_01.png,Eucalyptus paniculata ,Myrtaceae,-34.406725,150.8804143,Smooth white/grey bark; dull blue-green narrow leaves; cream-white flowers; protruding-valve gumnuts; tree 8–20 m locally.
+Guioa,Guioa_01.png,Guioa semiglauca,Sapindaceae,-34.405282,150.878717,Hard grey bark; alternate dark-green lance-shaped leaves; white flower clusters; cup-shaped gumnuts; tree to 30 m locally.
+Illawarra Flame Tree,Illawarra Flame Tree_01.png,Brachychiton acerifolia ,Malvaceae,-34.407333,150.879727,Grey spotted bark; leaves with 2–6 leaflets; pale green-white flowers; green-red capsules with orange/yellow aril; tree to 6 m.
+Illawarra Plum Pine,Illawarra Plum Pine_01.png,Podocarpus elatus ,Podocarpaceae,-34.407212,150.87917,Smooth greenish bark; simple or lobed deciduous leaves; bright red flowers; large woody pods; conical tree to 35 m.
+Jackwood,Jackwood_01.png,Cryptocarya glaucescens,Lauraceae,-34.407303,150.879267,Rough brown fissured bark; dark-green leaves; male catkins/female cones; blue-black fruit on female trees; tree to 40 m.
+Large-leaved Mock-olive,Large-leaved Mock-olive_01.png,Notelaea venosa,Oleaceae,-34.406833,150.879721,Rough fluted stem; yellow mid-vein and pale underside leaves; yellow flower clusters; ribbed black fruit; dense-crowned tree to 20 m+.
+Lilly Pilly,Lilly Pilly_01.png,Syzygium smithii,Myrtaceae,-34.406687,150.879502,Smooth grey-brown bark with lenticels; veined leaves; small white flower clusters; purple-black drupe; crooked small tree to 6 m.
+Morton Bay Fig,Morton Bay Fig_01.png,Ficus macrophylla ,Moraceae,-34.407147,150.879275,Smooth/slightly flaky bark; rounded-tip leaves; fragrant cream/pink flowers; round white-purple fruit; rainforest/watercourse tree.
+Native Holly,Native Holly_01.png,Alchornea ilicifolia,Euphorbiaceae,-34.406643,150.8795,Smooth brown bark; large leaves with rusty underside; hidden fig flowers pollinated by wasps; orange-purple figs; huge buttressed tree.
+Native Quince,Native Quince_01.png,Alectryon subcinereus ,Sapindaceae,-34.407307,150.879354,Smooth grey bark; prickly veined leaves with red/pink new growth; separate male/female cream flowers; brown/black capsules; tree to 6 m.
+Native Rosella,Native Rosella_01.png,Hibiscus heterophyllus,Malvaceae,-34.404346,150.878987,Fluted trunk with horizontal grooves; toothed leaflets; small white-green flowers; lobed capsules with black seeds in red aril; shrub/small tree.
+Native Tamarind,Native Tamarind_01.png,Diploglottis cunninghamii ,Sapindaceae,-34.406101,150.879149,Prickly bark/stems; lobed lower leaves and narrow upper leaves; large white-pink flowers with red centres; hairy capsules; small tree to 6 m.
+Pencil Cedar,Pencil Cedar_01.png,Polyscias murrayi ,Araliaceae,-34.405935,150.879367,Smooth/blistered grey bark; very large leaves with 6–12 leaflets; creamy-brown flowers; hairy brown capsules with orange-yellow aril; tree to 30 m.
+Port Jackson Fig,Port Jackson Fig_01.png,Ficus rubiginosa ,Moraceae,-34.405541,150.878362,Smooth bark with corky blisters; long leaves with many leaflets; white-light green flowers; purple to blue-black fleshy fruit; tree to 24 m.
+Prickly-leaved Tea Tree,Prickly-leaved Tea Tree_01.png,Melaleuca styphelioides ,Myrtaceae,-34.405595,150.878981,Smooth bark; veined leaves sometimes rusty underneath; fig-wasp syconium flowers; paired yellow/orange-red figs; broad fig habit.
+Red Cedar,Red Cedar_01.png,Toona ciliata ,Meliaceae,-34.406187,150.879128,Prickly foliage; paperbark-like habit; white flower clusters; small woody capsules; wildlife-supporting shrub/tree.
+River Oak,River Oak_01.png,Casuarina cunninghamiana ,Casuarinaceae,-34.405558,150.878927,Brown-grey scaly bark; deciduous leaves with many leaflets and red new growth; white flower clusters; winged seeds in capsules; tree to 40 m.
+Rough-barked Apple,Rough-barked Apple_01.png,Angophora floribunda ,Myrtaceae,-34.4056528,150.8781089,Rough fissured bark; fine needle-like branchlets with tiny scale leaves; separate male/female flowers; small woody cones; tree to 35 m.
+Sandpaper Fig,Sandpaper Fig_01.png,Ficus coronata ,Moraceae,-34.4059209,150.8807154,Brown fibrous bark; green adult leaves; cream-white flower clusters; ribbed gumnuts; twisted-branch tree to 30 m.
+Snow in Summer,Snow in Summer_01.png,Melaleuca linarifolia ,Myrtaceae,-34.4051241,150.8785683,Rough “sandpaper” leaves; fig-wasp flowers inside fruit; edible figs; small-medium riparian fig.
+Snow wood,Snow wood_01.png,Pararchidendron pruinosum ,Fabaceae,-34.407361,150.879453,Papery/flaky bark; narrow leaves; showy white summer flowers; woody capsules; small tree.
+Spotted Gum,Spotted Gum_01.png,Corymbia maculata ,Myrtaceae,-34.406736,150.879688,Smooth bark with corky blisters; glossy lime-green leaves with many leaflets; fragrant greenish-white/yellow flowers; pods with tiny black seeds; tree to 15 m.
+Swamp Mahogany,Swamp Mahogany_01.png,Eucalyptus robusta ,Myrtaceae,-34.406208,150.879543,Smooth bark shed in irregular patches; green long leaves; cream-white flowers in clusters; urn-shaped gumnuts; tree to 45 m.
+Swamp Oak,Swamp Oak_01.png,Casuarina glauca ,Casuarinaceae,-34.404319,150.878979,Deep red-brown rough bark; glossy green leaves; white flower clusters; cylindrical gumnuts; coastal swamp tree to 30 m.
+Sydney Red Gum,Sydney Red Gum_01.png,Angophora costata ,Myrtaceae,-34.405653,150.878062,Fissured bark; dull-green cylindrical branchlets with tiny whorled leaves; separate male/female flowers; woody cones; tree to 35 m.
+Turpentine,Turpentine_01.png,Syncarpia glomulifera ,Myrtaceae,-34.404752,150.881022,Smooth pink/red/grey/cream bark; broad leaves; cream-white flower clusters; ribbed gumnuts; twisted tree to 30 m.
+Whalebone Tree,Whalebone Tree_01.png,Streblus brunonianus ,Moraceae,-34.404852,150.878628,Fibrous persistent bark; opposite/near-opposite leaves; clustered white flowers; woody grouped fruit; tall forest tree.
+White Beech,White Beech_01.png,Gmelina leichhardtii ,Lamiaceae,-34.406851,150.880675,Tough green-grey bark; toothed rough shiny leaves; separate male/female white flowers; yellow-red drupes; compact rainforest tree.
+White Cedar,White Cedar_01.png,Melia azedarach ,Meliaceae,-34.4062148,150.8806539,Grey scaly bark; semi-deciduous pale-backed leaves with raised veins; creamy-white branched flowers; purple drupe; tree to 30 m.
+White Euodia,White Euodia_01.png,Melicope micrococca ,Rutaceae,-34.406858,150.880649,Grey furrowed bark; deciduous leaves; white-mauve flowers; yellow drupe fruit; tree to 10 m.
+Woollybutt,Woollybutt_01.png,Eucalyptus longifolia ,Myrtaceae,-34.40475,150.879661,Pale-brown smooth bark with corky blisters; trifoliate scented leaves; creamy-white flower clusters; aril-covered black seeds; tree to 27 m.
+,,,,,,"Rough fibrous grey bark at base, smooth above; long dull green-grey leaves; white/pink buds; cylindrical gumnuts; tall tree to 30 m."
