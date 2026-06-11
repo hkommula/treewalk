@@ -339,6 +339,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="./src/leaflet-simple-locate_v2.js"></script>
 
 <script>
 // ── 0. MOBILE BOTTOM SHEET DRAG LOGIC ────────────────────────
@@ -1216,38 +1217,10 @@ window.closeLightbox = () => {
     lb.style.opacity = '0'; setTimeout(() => lb.style.display = 'none', 250);
 };
 
-// ── 8. GPS TRACKING & GEOFENCE ──────────────────────────────
+// ── 8. GPS TRACKING WITH SIMPLE LOCATE ──────────────────────
 let userMarker = null, watchId = null, tracking = false;
 const gpsButton = document.getElementById('gps-toggle');
-const gpsPrompt = document.getElementById('gps-prompt');
-const gpsPromptEnable = document.getElementById('gps-prompt-enable');
-const gpsPromptDismiss = document.getElementById('gps-prompt-dismiss');
-function setGPSButtonState(state) {
-    gpsButton.classList.remove('active');
-    gpsButton.classList.toggle('locating', state === 'locating');
-    gpsButton.classList.toggle('gps-active', state === 'active');
-    if (state === 'locating' || state === 'active') hideGPSPrompt();
-}
-function hideGPSPrompt() {
-    if (gpsPrompt) gpsPrompt.classList.remove('show');
-}
-function markGPSPromptSeen() {
-    try { sessionStorage.setItem('uow-treewalk-gps-prompt-seen', '1'); } catch (e) {}
-    hideGPSPrompt();
-}
-function maybeShowGPSPrompt() {
-    if (!gpsPrompt || tracking || !navigator.geolocation) return;
-    try {
-        if (sessionStorage.getItem('uow-treewalk-gps-prompt-seen')) return;
-    } catch (e) {}
-    gpsPrompt.classList.add('show');
-}
-gpsPromptEnable?.addEventListener('click', () => {
-    markGPSPromptSeen();
-    if (!tracking) gpsButton.click();
-});
-gpsPromptDismiss?.addEventListener('click', markGPSPromptSeen);
-setTimeout(maybeShowGPSPrompt, 1000);
+
 function clearNearbyTooltips() {
     nearbyTooltipIds.forEach(id => {
         const marker = markersMap[id];
@@ -1255,6 +1228,7 @@ function clearNearbyTooltips() {
     });
     nearbyTooltipIds.clear();
 }
+
 function scheduleGPSRefresh(forceRouteRefresh = false) {
     if (forceRouteRefresh) lastUserRouteRenderLoc = null;
     if (gpsUpdateQueued) return;
@@ -1265,44 +1239,85 @@ function scheduleGPSRefresh(forceRouteRefresh = false) {
         generateSmartRoutes({ force: forceRouteRefresh });
     });
 }
+
+function setGPSButtonState(state) {
+    gpsButton.classList.remove('locating', 'gps-active');
+    const statusLight = gpsButton.querySelector('.gps-status-light');
+    if (state === 'locating') {
+        gpsButton.classList.add('locating');
+    } else if (state === 'active') {
+        gpsButton.classList.add('gps-active');
+    }
+}
+
+// GPS Tracking with SimpleLocate
 gpsButton.addEventListener('click', function() {
     if (!tracking) {
         if (!navigator.geolocation) return alert('Geolocation not supported.');
         
-        tracking = true; setGPSButtonState('locating');
-        watchId = navigator.geolocation.watchPosition(pos => {
-            userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            
-            // 2km Geofence tracking check
-            const distFromCampus = getDistance(userLoc.lat, userLoc.lng, UOW_CENTER[0], UOW_CENTER[1]);
-            if (distFromCampus > 2000) {
-                alert('Sorry, you are too far away. Move closer to the area for the tracking feature.');
-                gpsButton.click(); // Turn off automatically
-                return;
+        tracking = true;
+        setGPSButtonState('locating');
+        
+        watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                userLoc = { lat: position.coords.latitude, lng: position.coords.longitude };
+                
+                // Check geofence
+                const distFromCampus = getDistance(userLoc.lat, userLoc.lng, UOW_CENTER[0], UOW_CENTER[1]);
+                if (distFromCampus > 2000) {
+                    alert('Sorry, you are too far away. Move closer to the area for the tracking feature.');
+                    gpsButton.click(); // Turn off
+                    return;
+                }
+                
+                setGPSButtonState('active');
+                
+                // Create or update marker
+                if (!userMarker) {
+                    userMarker = L.circleMarker([userLoc.lat, userLoc.lng], {
+                        radius: 8,
+                        color: '#fff',
+                        weight: 2.5,
+                        fillColor: '#3b82f6',
+                        fillOpacity: 1,
+                        zIndexOffset: 1000
+                    }).addTo(map);
+                    flyToVisible([userLoc.lat, userLoc.lng], 19, { animate: true });
+                } else {
+                    userMarker.setLatLng([userLoc.lat, userLoc.lng]);
+                }
+                
+                // Update routes and proximity
+                scheduleGPSRefresh();
+            },
+            (error) => {
+                tracking = false;
+                setGPSButtonState('off');
+                userLoc = null;
+                if (activeTree) updateDetailMiniCoords(activeTree);
+                if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                console.error('Geolocation error:', error);
+                alert(error?.message || 'Unable to obtain your location.');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 5000
             }
-            setGPSButtonState('active');
-
-            if (!userMarker) {
-                userMarker = L.circleMarker([userLoc.lat, userLoc.lng], { radius:8, color:'#fff', weight:2.5, fillColor:'#3b82f6', fillOpacity:1, zIndexOffset:1000 }).addTo(map);
-                flyToVisible([userLoc.lat, userLoc.lng], 19, {animate: true});
-            } else { userMarker.setLatLng([userLoc.lat, userLoc.lng]); }
-            
-            scheduleGPSRefresh();
-        }, err => {
-            tracking = false;
-            setGPSButtonState('off');
-            userLoc = null;
-            if (activeTree) updateDetailMiniCoords(activeTree);
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-            alert(err?.message || 'Unable to obtain your location.');
-        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+        );
     } else {
-        tracking = false; setGPSButtonState('off'); userLoc = null;
+        // Stop tracking
+        tracking = false;
+        setGPSButtonState('off');
+        userLoc = null;
         if (activeTree) updateDetailMiniCoords(activeTree);
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         watchId = null;
-        if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+        if (userMarker) {
+            map.removeLayer(userMarker);
+            userMarker = null;
+        }
         lastUserRouteRenderLoc = null;
         clearNearbyTooltips();
         generateSmartRoutes({ force: true });
